@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KATMER — Katmanlı Levha Çözücü</title>
+<style>
+  :root {
+    --z0: #16191d; --z1: #1e2227; --z2: #262b31; --z3: #2f353c; --cizgi: #3b434c;
+    --yazi: #d9dee4; --soluk: #8e99a6; --vurgu: #4aa3ff; --vurgu2: #ffb347;
+    --hata: #ff6b5e; --tamam: #5fd38a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { background: var(--z0); color: var(--yazi); font: 12.5px/1.4 "Segoe UI", Arial, sans-serif; user-select: none; }
+  #uyg { display: grid; grid-template-rows: 30px 40px minmax(0, 1fr) 24px; height: 100vh; }
+
+  /* menü */
+  #menu { display: flex; align-items: center; background: var(--z2); border-bottom: 1px solid var(--cizgi); padding: 0 8px; position: relative; z-index: 30; }
+  #marka { display: flex; align-items: center; gap: 8px; margin-right: 16px; font-weight: 700; letter-spacing: 1.5px; }
+  #marka i { display: inline-block; width: 18px; height: 14px;
+    background: linear-gradient(#4aa3ff 0 3px, transparent 3px 5.5px, #5fd38a 5.5px 8.5px, transparent 8.5px 11px, #ffb347 11px 14px); transform: skewX(-18deg); }
+  #marka small { font-weight: 400; letter-spacing: 0; color: var(--soluk); }
+  .menuBas { padding: 6px 10px; cursor: default; border-radius: 3px; position: relative; }
+  .menuBas:hover, .menuBas.acik { background: var(--z3); }
+  .menuListe { display: none; position: absolute; left: 0; top: 28px; min-width: 250px; background: var(--z2); border: 1px solid var(--cizgi);
+    box-shadow: 0 8px 24px rgba(0,0,0,.5); padding: 4px 0; }
+  .menuBas.acik .menuListe { display: block; }
+  .menuListe div { padding: 5px 14px; white-space: nowrap; }
+  .menuListe div:hover { background: var(--vurgu); color: #0b1016; }
+  .menuListe hr { border: 0; border-top: 1px solid var(--cizgi); margin: 4px 0; }
+
+  /* araç şeridi */
+  #arac { display: flex; align-items: center; gap: 4px; background: var(--z1); border-bottom: 1px solid var(--cizgi); padding: 0 8px; white-space: nowrap; overflow: hidden; }
+  #arac .ayir { width: 1px; height: 22px; background: var(--cizgi); margin: 0 6px; }
+  #arac label { color: var(--soluk); display: inline-flex; align-items: center; gap: 5px; }
+  button, select { font: inherit; color: var(--yazi); background: var(--z3); border: 1px solid var(--cizgi); border-radius: 3px; padding: 4px 9px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--vurgu); }
+  button:disabled { opacity: .35; cursor: default; }
+  button.basili { background: #1d4468; border-color: var(--vurgu); }
+  button.kucuk { padding: 1px 6px; min-width: 24px; }
+  input[type=range] { width: 110px; accent-color: var(--vurgu); }
+  input[type=checkbox] { accent-color: var(--vurgu); }
+  #arac b.deger { display: inline-block; min-width: 38px; color: var(--yazi); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* gövde */
+  #govde { display: grid; grid-template-columns: 356px minmax(0, 1fr); min-height: 0; }
+  #sol { display: grid; grid-template-rows: minmax(0, 47fr) minmax(0, 53fr); min-height: 0; border-right: 1px solid var(--cizgi); }
+  #sag { display: grid; grid-template-rows: minmax(0, 1fr) 262px; min-height: 0; min-width: 0; }
+  .panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--z1); }
+  .panelBas { flex: none; height: 24px; line-height: 24px; padding: 0 10px; background: var(--z2); border-bottom: 1px solid var(--cizgi);
+    border-top: 1px solid var(--cizgi); color: var(--soluk); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; }
+  .panelIc { flex: 1; min-height: 0; overflow: auto; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: #48515b; border-radius: 5px; } ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ağaç */
+  #agac { padding: 4px 0; }
+  .dugum { display: flex; align-items: center; height: 20px; padding-right: 8px; cursor: default; white-space: nowrap; }
+  .dugum:hover { background: var(--z3); }
+  .dugum.secili { background: #1d4468; }
+  .dugum .ok { width: 14px; text-align: center; color: var(--soluk); font-size: 9px; }
+  .dugum .sim { width: 12px; height: 12px; margin-right: 6px; flex: none; border-radius: 2px; }
+  .dugum .ek { margin-left: auto; padding-left: 10px; color: var(--soluk); font-variant-numeric: tabular-nums; }
+  .dugum .rozet { margin-left: 6px; color: var(--hata); font-weight: 700; }
+  .dugum.renkli::after { content: "●"; color: var(--vurgu2); margin-left: 6px; font-size: 10px; }
+  .dugum.soluk { color: var(--soluk); }
+  .sim.klasor { background: #c9a04a; } .sim.malz { background: #b07cd8; border-radius: 6px; } .sim.kat { background: linear-gradient(#4aa3ff 0 4px, #5fd38a 4px 8px, #ffb347 8px 12px); }
+  .sim.yuk { background: #ff6b5e; clip-path: polygon(0 35%, 60% 35%, 60% 0, 100% 50%, 60% 100%, 60% 65%, 0 65%); }
+  .sim.coz { background: #5fd38a; clip-path: polygon(0 55%, 35% 100%, 100% 15%, 85% 0, 35% 65%, 15% 40%); }
+  .sim.son { background: linear-gradient(90deg, #2060ff, #20e0e0, #40e040, #f0f020, #ff3020); }
+  .sim.tab { background: repeating-linear-gradient(#8e99a6 0 2px, transparent 2px 4px); } .sim.tek { background: #8e99a6; height: 4px; }
+  .sim.proje { background: var(--vurgu); transform: rotate(45deg) scale(.8); }
+
+  /* ayrıntı */
+  #ayrinti { padding: 8px 10px 12px; user-select: text; }
+  #ayrinti h4 { margin: 0 0 6px; font-size: 13px; }
+  #ayrinti h5 { margin: 10px 0 4px; font-size: 11px; color: var(--soluk); letter-spacing: .4px; font-weight: 600; }
+  .izgara { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+  label.alan { display: block; color: var(--soluk); font-size: 11px; }
+  label.alan span { color: var(--yazi); font-weight: 600; font-size: 12.5px; }
+  input[type=text] { width: 100%; padding: 4px 6px; background: var(--z0); color: var(--yazi); border: 1px solid var(--cizgi); border-radius: 3px;
+    font: inherit; font-variant-numeric: tabular-nums; }
+  input[type=text]:focus { outline: 1px solid var(--vurgu); border-color: var(--vurgu); }
+  input.hatali { border-color: var(--hata); background: #3a1d1b; }
+  .not { color: var(--soluk); font-size: 11px; margin: 6px 0 0; }
+  .kartlar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .kart { border: 1px solid var(--cizgi); background: var(--z2); border-radius: 4px; padding: 5px 8px; }
+  .kart .k { color: var(--soluk); font-size: 10.5px; } .kart .v { font-size: 14px; font-weight: 600; } .kart .a { color: var(--soluk); font-size: 10.5px; }
+  .kart.genis { grid-column: 1 / 3; }
+  .uyari { color: var(--hata); font-weight: 600; }
+
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 2px 7px; border-bottom: 1px solid #323940; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th { color: var(--soluk); font-weight: 600; font-size: 11px; position: sticky; top: 0; background: var(--z1); }
+  td.sol, th.sol { text-align: left; }
+  tr.tik { cursor: pointer; } tr.tik:hover td { background: var(--z3); }
+  tr.seciliSatir td { background: #1d4468; }
+  tr.kritik td:first-child { box-shadow: inset 3px 0 0 var(--vurgu2); }
+  #katEditor td { border: 0; padding: 2px 2px; } #katEditor th { position: static; padding: 2px 2px; }
+  table.matris { width: auto; } table.matris td { border: 1px solid #3b434c; padding: 2px 8px; }
+
+  /* görünüm */
+  #gorunum { position: relative; min-height: 0; min-width: 0; background: radial-gradient(ellipse at 50% 35%, #37424f 0%, #232a32 55%, #171b20 100%); overflow: hidden; }
+  #tuval { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+  #tuval.tutuyor { cursor: grabbing; }
+  #bilgi { position: absolute; left: 14px; top: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
+  #bilgi .b1 { font-size: 15px; font-weight: 600; } #bilgi .b2 { color: #b8c2cd; font-size: 11.5px; }
+  #skala { position: absolute; right: 14px; top: 12px; width: 190px; background: rgba(22,25,29,.72); border: 1px solid var(--cizgi); border-radius: 4px; padding: 8px 10px; pointer-events: none; }
+  #skala .sb { font-weight: 600; margin-bottom: 6px; }
+  #skala .cubuk { display: flex; gap: 8px; height: 250px; }
+  #skala .renkler { width: 22px; border: 1px solid #000; }
+  #skala .cizgiler { display: flex; flex-direction: column; justify-content: space-between; font-variant-numeric: tabular-nums; margin: -7px 0; }
+  #skala .uc { margin-top: 8px; font-size: 11.5px; } #skala .uc b { font-variant-numeric: tabular-nums; }
+  #skala .uc span { color: var(--soluk); display: block; font-size: 10.5px; margin-bottom: 3px; }
+  #skala .acilar div { display: flex; align-items: center; gap: 8px; margin: 3px 0; } #skala .acilar i { width: 22px; height: 12px; border: 1px solid #000; display: inline-block; }
+  #cozumYok { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(58,29,27,.92); border: 1px solid var(--hata); color: #ffd9d5;
+    padding: 12px 18px; border-radius: 4px; display: none; max-width: 520px; text-align: center; }
+  #ipucu { position: absolute; right: 14px; bottom: 8px; color: #8e99a6; font-size: 11px; pointer-events: none; }
+
+  /* alt panel */
+  #sekmeler { flex: none; display: flex; height: 26px; background: var(--z2); border-top: 1px solid var(--cizgi); border-bottom: 1px solid var(--cizgi); }
+  .sekme { padding: 0 14px; line-height: 25px; color: var(--soluk); border-right: 1px solid var(--cizgi); cursor: default; }
+  .sekme:hover { color: var(--yazi); } .sekme.acik { background: var(--z1); color: var(--yazi); box-shadow: inset 0 2px 0 var(--vurgu); }
+  .sekme .say { color: var(--hata); font-weight: 700; margin-left: 4px; }
+  #altIc { user-select: text; }
+  #altIc .ic { padding: 6px 10px; }
+  .mesaj { font-family: Consolas, "Courier New", monospace; font-size: 12px; padding: 1px 10px; white-space: pre-wrap; }
+  .mesaj.hata { color: var(--hata); } .mesaj.tamam { color: var(--tamam); } .mesaj.bilgi { color: var(--soluk); }
+  .matrisler { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: flex-start; }
+  .matrisler h5 { margin: 0 0 3px; font-size: 11px; color: var(--soluk); font-weight: 600; }
+  svg text { font-family: "Segoe UI", Arial, sans-serif; }
+
+  /* durum */
+  #durum { display: flex; align-items: center; gap: 18px; padding: 0 10px; background: #1a4a7a; color: #e6eef7; font-size: 11.5px; white-space: nowrap; overflow: hidden; }
+  #durum.hata { background: #7a2a22; }
+  #durum .lamba { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--tamam); margin-right: 6px; }
+  #durum.hata .lamba { background: #ffd0cc; }
+  #durum .sag { margin-left: auto; opacity: .85; }
+
+  /* pencere */
+  #perde { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #pencere { width: 640px; max-height: 80vh; overflow: auto; background: var(--z2); border: 1px solid var(--cizgi); border-radius: 6px; padding: 16px 20px; user-select: text; box-shadow: 0 16px 48px rgba(0,0,0,.6); }
+  #pencere h3 { margin: 0 0 8px; } #pencere p { margin: 6px 0; color: #c3cad2; }
+</style>
+</head>
+<body>
+<div id="uyg">
+  <div id="menu">
+    <div id="marka"><i></i>KATMER <small>Katmanlı Levha Çözücü</small></div>
+    <div class="menuBas">Dosya<div class="menuListe">
+      <div data-komut="ornek">Örnek levhayı yükle</div><hr>
+      <div data-komut="png">Görünümü resim olarak kaydet (PNG)</div>
+    </div></div>
+    <div class="menuBas">Görünüm<div class="menuListe">
+      <div data-komut="bak:izo">İzometrik</div><div data-komut="bak:ust">Üstten</div><div data-komut="bak:alt">Alttan</div>
+      <div data-komut="bak:on">Önden (x–z)</div><div data-komut="bak:yan">Yandan (y–z)</div><hr>
+      <div data-komut="sigdir">Sığdır</div><div data-komut="lif">Lif çizgilerini aç / kapat</div><div data-komut="etiket">Katman etiketlerini aç / kapat</div>
+      <div data-komut="abartOto">Kalınlık abartmasını otomatik ayarla</div>
+    </div></div>
+    <div class="menuBas">Model<div class="menuListe">
+      <div data-komut="sec:malz">Malzeme</div><div data-komut="sec:kat">Katmanlar</div><div data-komut="sec:yuk">Yükler</div><hr>
+      <div data-komut="satirEkle">Katman ekle</div>
+    </div></div>
+    <div class="menuBas">Sonuçlar<div class="menuListe">
+      <div data-komut="sec:coz">İlk hasar özeti</div><hr>
+      <div data-komut="sec:r:sx">σx</div><div data-komut="sec:r:sy">σy</div><div data-komut="sec:r:txy">τxy</div>
+      <div data-komut="sec:r:s1">σ₁</div><div data-komut="sec:r:s2">σ₂</div><div data-komut="sec:r:t12">τ₁₂</div>
+      <div data-komut="sec:r:th">Hasar göstergesi (Tsai-Hill)</div><hr>
+      <div data-komut="sec:geo">Geometri (açıya göre renk)</div>
+    </div></div>
+    <div class="menuBas">Tablolar<div class="menuListe">
+      <div data-komut="alt:mesaj">Mesajlar</div><div data-komut="alt:tablo">Gerilme tablosu</div><div data-komut="alt:hasar">Hasar tablosu</div>
+      <div data-komut="alt:matris">Matrisler (A-B-D, Q, Q̄, gerinim)</div><div data-komut="alt:grafik">Kalınlık boyunca grafik</div>
+    </div></div>
+    <div class="menuBas">Yardım<div class="menuListe">
+      <div data-komut="alt:kabul">Kabuller ve işaret düzeni</div><div data-komut="hakkinda">KATMER hakkında</div>
+    </div></div>
+  </div>
+
+  <div id="arac">
+    <button data-komut="bak:izo" title="İzometrik görünüm">İzo</button>
+    <button data-komut="bak:ust" title="Üstten">Üst</button>
+    <button data-komut="bak:on" title="Önden (x–z düzlemi)">Ön</button>
+    <button data-komut="bak:yan" title="Yandan (y–z düzlemi)">Yan</button>
+    <button data-komut="sigdir" title="Modeli ekrana sığdır">Sığdır</button>
+    <span class="ayir"></span>
+    <label title="Levha çok ince olduğu için kalınlık çizimde büyütülür; hesabı etkilemez">Kalınlık abartma <input type="range" id="abart" min="0" max="100" step="1"> <b class="deger" id="abartYazi"></b></label>
+    <button data-komut="abartOto" id="abartOtoDugme" title="Abartmayı levha kalınlığına göre kendiliğinden seç">Oto</button>
+    <span class="ayir"></span>
+    <label title="Katmanları birbirinden ayırır; aradaki katmanların üst yüzü görünür">Katman aralığı <input type="range" id="aralik" min="0" max="100" step="1" value="0"></label>
+    <span class="ayir"></span>
+    <label><input type="checkbox" id="lif" checked> Lifler</label>
+    <label><input type="checkbox" id="etiket" checked> Etiketler</label>
+    <span class="ayir"></span>
+    <label>Renk <select id="renkSec">
+      <option value="geo">Geometri (açı)</option>
+      <option value="sx">σx</option><option value="sy">σy</option><option value="txy">τxy</option>
+      <option value="s1">σ₁</option><option value="s2">σ₂</option><option value="t12">τ₁₂</option>
+      <option value="th">Hasar göstergesi</option>
+    </select></label>
+  </div>
+
+  <div id="govde">
+    <div id="sol">
+      <div class="panel"><div class="panelBas" style="border-top:0">Proje ağacı</div><div class="panelIc"><div id="agac"></div></div></div>
+      <div class="panel"><div class="panelBas" id="ayrintiBas" style="text-transform:none">Ayrıntı</div><div class="panelIc"><div id="ayrinti"><div id="ayrintiGirdi"></div><div id="ayrintiSonuc"></div></div></div></div>
+    </div>
+    <div id="sag">
+      <div id="gorunum">
+        <canvas id="tuval"></canvas>
+        <div id="bilgi"></div>
+        <div id="skala"></div>
+        <div id="cozumYok"></div>
+        <div id="ipucu">Sol tuş: çevir · Shift + sol ya da orta tuş: kaydır · Tekerlek: yaklaş / uzaklaş · Tık: katman seç · Çift tık: sığdır</div>
+      </div>
+      <div class="panel">
+        <div id="sekmeler"></div>
+        <div class="panelIc" id="altIc"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="durum"></div>
+</div>
+<div id="perde"><div id="pencere"></div></div>
+
+<!-- =====================================================================
+     HESAP ÇEKİRDEĞİ — levha.html dosyasındaki bloğun harfi harfine aynısıdır
+     (betikle kopyalandı, elle değiştirilmedi). Arayüzden bağımsızdır.
+     ===================================================================== -->
+<script id="cekirdek">
+var LevhaCekirdek = (function () {
+  'use strict';
+
+  // "53,78" / "53.78" / "1,5e3" / "-2" -> sayı. Hem virgül hem nokta ondalık ayırıcıdır.
+  function sayiOku(metin) {
+    var s = String(metin == null ? '' : metin).replace(/\s+/g, '').replace(/−/g, '-');
+    if (s === '') return { tamam: false, hata: 'boş bırakılmış' };
+    if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0)
+      return { tamam: false, hata: 'hem virgül hem nokta var; yalnız birini ondalık ayırıcı olarak kullanın' };
+    s = s.replace(',', '.');
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(s)) return { tamam: false, hata: 'sayı değil' };
+    var v = Number(s);
+    if (!isFinite(v)) return { tamam: false, hata: 'sayı çok büyük' };
+    return { tamam: true, deger: v };
+  }
+
+  // Malzeme eksenlerinde indirgenmiş rijitlik [Q] (düzlem gerilme)
+  function qMatris(E1, E2, nu12, G12) {
+    var nu21 = nu12 * E2 / E1;
+    var p = 1 - nu12 * nu21;
+    var Q11 = E1 / p, Q22 = E2 / p, Q12 = nu12 * E2 / p;
+    return [[Q11, Q12, 0], [Q12, Q22, 0], [0, 0, G12]];
+  }
+
+  // cos ve sin; 90°'nin katlarında tam değer (cos 90° = 6e-17 gürültüsü olmasın)
+  function cosSin(aciDerece) {
+    var a = ((aciDerece % 360) + 360) % 360;
+    if (a === 0) return [1, 0];
+    if (a === 90) return [0, 1];
+    if (a === 180) return [-1, 0];
+    if (a === 270) return [0, -1];
+    var r = a * Math.PI / 180;
+    return [Math.cos(r), Math.sin(r)];
+  }
+
+  // Levha eksenlerinde dönüştürülmüş rijitlik [Q̄]
+  function qDonusmus(Q, aciDerece) {
+    var cs = cosSin(aciDerece), c = cs[0], s = cs[1];
+    var c2 = c * c, s2 = s * s, c4 = c2 * c2, s4 = s2 * s2;
+    var Q11 = Q[0][0], Q12 = Q[0][1], Q22 = Q[1][1], Q66 = Q[2][2];
+    var b11 = Q11 * c4 + 2 * (Q12 + 2 * Q66) * s2 * c2 + Q22 * s4;
+    var b22 = Q11 * s4 + 2 * (Q12 + 2 * Q66) * s2 * c2 + Q22 * c4;
+    var b12 = (Q11 + Q22 - 4 * Q66) * s2 * c2 + Q12 * (s4 + c4);
+    var b66 = (Q11 + Q22 - 2 * Q12 - 2 * Q66) * s2 * c2 + Q66 * (s4 + c4);
+    var b16 = (Q11 - Q12 - 2 * Q66) * s * c2 * c + (Q12 - Q22 + 2 * Q66) * s2 * s * c;
+    var b26 = (Q11 - Q12 - 2 * Q66) * s2 * s * c + (Q12 - Q22 + 2 * Q66) * s * c2 * c;
+    return [[b11, b12, b16], [b12, b22, b26], [b16, b26, b66]];
+  }
+
+  // Levha eksenlerindeki gerilmeyi [σx, σy, τxy] malzeme eksenlerine [σ1, σ2, τ12] çevirir
+  function malzemeEksenineCevir(sxy, aciDerece) {
+    var cs = cosSin(aciDerece), c = cs[0], s = cs[1];
+    var sx = sxy[0], sy = sxy[1], t = sxy[2];
+    return [
+      c * c * sx + s * s * sy + 2 * c * s * t,
+      s * s * sx + c * c * sy - 2 * c * s * t,
+      -c * s * sx + c * s * sy + (c * c - s * s) * t
+    ];
+  }
+
+  // Tsai-Hill (düzlem gerilme). Çekme / basma dayanımı gerilmenin işaretine göre seçilir.
+  function tsaiHill(s1, s2, t12, d) {
+    var X = s1 >= 0 ? d.Xt : d.Xc;
+    var Y = s2 >= 0 ? d.Yt : d.Yc;
+    var lif = (s1 / X) * (s1 / X);
+    var enine = (s2 / Y) * (s2 / Y);
+    var kayma = (t12 / d.S) * (t12 / d.S);
+    var capraz = -(s1 * s2) / (X * X);
+    return { gosterge: lif + capraz + enine + kayma, lif: lif, enine: enine, kayma: kayma, capraz: capraz };
+  }
+
+  // Kısmi pivotlu Gauss eleme. Tekilse null döner.
+  function dogrusalCoz(K, b) {
+    var n = b.length, i, j, k, M = [], enb = 0;
+    for (i = 0; i < n; i++) {
+      M.push(K[i].slice().concat([b[i]]));
+      for (j = 0; j < n; j++) enb = Math.max(enb, Math.abs(K[i][j]));
+    }
+    if (!(enb > 0) || !isFinite(enb)) return null;
+    for (k = 0; k < n; k++) {
+      var p = k;
+      for (i = k + 1; i < n; i++) if (Math.abs(M[i][k]) > Math.abs(M[p][k])) p = i;
+      if (!(Math.abs(M[p][k]) > 1e-12 * enb)) return null;
+      var g = M[k]; M[k] = M[p]; M[p] = g;
+      for (i = k + 1; i < n; i++) {
+        var f = M[i][k] / M[k][k];
+        for (j = k; j <= n; j++) M[i][j] -= f * M[k][j];
+      }
+    }
+    var x = new Array(n);
+    for (i = n - 1; i >= 0; i--) {
+      var t = M[i][n];
+      for (j = i + 1; j < n; j++) t -= M[i][j] * x[j];
+      x[i] = t / M[i][i];
+    }
+    return x;
+  }
+
+  function carp3(Mt, v) {
+    return [
+      Mt[0][0] * v[0] + Mt[0][1] * v[1] + Mt[0][2] * v[2],
+      Mt[1][0] * v[0] + Mt[1][1] * v[1] + Mt[1][2] * v[2],
+      Mt[2][0] * v[0] + Mt[2][1] * v[1] + Mt[2][2] * v[2]
+    ];
+  }
+  function sifir3() { return [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; }
+  function sonlu(x) { return typeof x === 'number' && isFinite(x); }
+
+  /* g = { E1, E2, nu12, G12, Xt, Xc, Yt, Yc, S,            (Pa; nu12 birimsiz)
+           katmanlar: [ { aci (derece), t (m), n (adet) } ],  ilk eleman z = -h/2'de
+           yuk: [Nx, Ny, Nxy, Mx, My, Mxy] }                  (N/m ve N)
+     Dönen: { hatalar: [ {alan, mesaj} ], ... }  hatalar boş değilse başka alan yoktur. */
+  function hesapla(g) {
+    var hat = [];
+    function H(alan, mesaj) { hat.push({ alan: alan, mesaj: mesaj }); }
+    var i, j, k;
+
+    [['E1', 'E₁'], ['E2', 'E₂'], ['G12', 'G₁₂'], ['Xt', 'Xt'], ['Xc', 'Xc'], ['Yt', 'Yt'], ['Yc', 'Yc'], ['S', 'S']].forEach(function (a) {
+      var v = g[a[0]];
+      if (!sonlu(v)) H(a[0], a[1] + ' sayı değil.');
+      else if (v < 0) H(a[0], a[1] + ' negatif olamaz; pozitif bir değer girin.');
+      else if (v === 0) H(a[0], a[1] + ' sıfır olamaz; pozitif bir değer girin.');
+    });
+    if (!sonlu(g.nu12)) H('nu12', 'ν₁₂ sayı değil.');
+    else if (sonlu(g.E1) && sonlu(g.E2) && g.E1 > 0 && g.E2 > 0 && !(1 - g.nu12 * g.nu12 * g.E2 / g.E1 > 1e-9))
+      H('nu12', 'ν₁₂ bu modüllerle fiziksel değil: ν₁₂² < E₁/E₂ olmalı (yani |ν₁₂| < ' +
+        Math.sqrt(g.E1 / g.E2).toFixed(3).replace('.', ',') + ').');
+
+    var kat = g.katmanlar || [];
+    if (kat.length === 0) H('katman', 'Katman tablosu boş; en az bir satır ekleyin.');
+    for (k = 0; k < kat.length; k++) {
+      var no = (k + 1) + '. katman: ';
+      if (!sonlu(kat[k].aci)) H('k' + k + '_aci', no + 'açı sayı değil.');
+      if (!sonlu(kat[k].t)) H('k' + k + '_t', no + 'tabaka kalınlığı sayı değil.');
+      else if (kat[k].t === 0) H('k' + k + '_t', no + 'tabaka kalınlığı sıfır olamaz.');
+      else if (kat[k].t < 0) H('k' + k + '_t', no + 'tabaka kalınlığı negatif olamaz.');
+      if (!sonlu(kat[k].n)) H('k' + k + '_n', no + 'tabaka adedi sayı değil.');
+      else if (kat[k].n < 1 || Math.floor(kat[k].n) !== kat[k].n) H('k' + k + '_n', no + 'tabaka adedi 1 veya daha büyük bir tam sayı olmalı.');
+    }
+    var yukAd = ['Nx', 'Ny', 'Nxy', 'Mx', 'My', 'Mxy'];
+    var yuk = g.yuk || [];
+    for (i = 0; i < 6; i++) if (!sonlu(yuk[i])) H(yukAd[i], yukAd[i] + ' sayı değil.');
+    if (hat.length) return { hatalar: hat };
+
+    var Q = qMatris(g.E1, g.E2, g.nu12, g.G12);
+    var day = { Xt: g.Xt, Xc: g.Xc, Yt: g.Yt, Yc: g.Yc, S: g.S };
+
+    // Geometri
+    var h = 0;
+    for (k = 0; k < kat.length; k++) h += kat[k].t * kat[k].n;
+    if (!(h > 0) || !isFinite(h)) return { hatalar: [{ alan: 'katman', mesaj: 'Toplam kalınlık hesaplanamadı.' }] };
+    var z = [-h / 2];
+    for (k = 0; k < kat.length; k++) z.push(z[k] + kat[k].t * kat[k].n);
+
+    // A, B, D
+    var A = sifir3(), B = sifir3(), D = sifir3(), Qb = [];
+    for (k = 0; k < kat.length; k++) {
+      var q = qDonusmus(Q, kat[k].aci);
+      Qb.push(q);
+      var z0 = z[k], z1 = z[k + 1];
+      for (i = 0; i < 3; i++) for (j = 0; j < 3; j++) {
+        A[i][j] += q[i][j] * (z1 - z0);
+        B[i][j] += q[i][j] * (z1 * z1 - z0 * z0) / 2;
+        D[i][j] += q[i][j] * (z1 * z1 * z1 - z0 * z0 * z0) / 3;
+      }
+    }
+    // Yuvarlama gürültüsünü temizle (simetrik dizilimde B tam sıfır görünsün)
+    var Aenb = 0;
+    for (i = 0; i < 3; i++) for (j = 0; j < 3; j++) Aenb = Math.max(Aenb, Math.abs(A[i][j]));
+    for (i = 0; i < 3; i++) for (j = 0; j < 3; j++) {
+      if (Math.abs(A[i][j]) < 1e-12 * Aenb) A[i][j] = 0;
+      if (Math.abs(B[i][j]) < 1e-12 * Aenb * h) B[i][j] = 0;
+      if (Math.abs(D[i][j]) < 1e-12 * Aenb * h * h) D[i][j] = 0;
+    }
+
+    // [N; M/h] = [A, B/h; B/h, D/h²] [ε⁰; κh]   (ölçekli: sayılar aynı mertebede kalsın)
+    var K = [], rhs = [];
+    for (i = 0; i < 3; i++) K.push([A[i][0], A[i][1], A[i][2], B[i][0] / h, B[i][1] / h, B[i][2] / h]);
+    for (i = 0; i < 3; i++) K.push([B[i][0] / h, B[i][1] / h, B[i][2] / h, D[i][0] / h / h, D[i][1] / h / h, D[i][2] / h / h]);
+    for (i = 0; i < 3; i++) rhs.push(yuk[i]);
+    for (i = 3; i < 6; i++) rhs.push(yuk[i] / h);
+    var coz = dogrusalCoz(K, rhs);
+    if (!coz || coz.some(function (v) { return !isFinite(v); }))
+      return { hatalar: [{ alan: 'katman', mesaj: 'Rijitlik matrisi (A-B-D) tersine çevrilemedi; malzeme sabitlerini ve katmanları kontrol edin.' }] };
+    var eps0 = [coz[0], coz[1], coz[2]];
+    var kappa = [coz[3] / h, coz[4] / h, coz[5] / h];
+
+    // Gerilmeler ve hasar
+    function noktaHesapla(kk, zz, yuz) {
+      var e = [eps0[0] + zz * kappa[0], eps0[1] + zz * kappa[1], eps0[2] + zz * kappa[2]];
+      var sxy = carp3(Qb[kk], e);
+      var s12 = malzemeEksenineCevir(sxy, kat[kk].aci);
+      return { z: zz, yuz: yuz, gerinim: e, sxy: sxy, s12: s12, th: tsaiHill(s12[0], s12[1], s12[2], day) };
+    }
+    var sonKat = [], enb = { gosterge: -1, katman: -1, nokta: null };
+    for (k = 0; k < kat.length; k++) {
+      var ust = noktaHesapla(k, z[k], 'üst'), alt = noktaHesapla(k, z[k + 1], 'alt');
+      var nokta = [ust];
+      // σ1 veya σ2 katman içinde işaret değiştiriyorsa dayanım (çekme/basma) orada değişir;
+      // gösterge parçalı olduğundan en büyük değer o noktada da olabilir. O noktayı da değerlendir.
+      for (j = 0; j < 2; j++) {
+        var a = ust.s12[j], b = alt.s12[j];
+        if (a * b < 0) nokta.push(noktaHesapla(k, z[k] + (z[k + 1] - z[k]) * a / (a - b), 'ara'));
+      }
+      nokta.push(alt);
+      nokta.sort(function (p, q2) { return p.z - q2.z; });
+      // İşaretlerin sabit kaldığı her parçada gösterge z'nin ikinci derece fonksiyonudur.
+      // Y > 2X gibi alışılmadık dayanımlarda bu parabol aşağı bakabilir (tepe parçanın içinde).
+      // Parabolü üç noktadan kur; tepesi parçanın içindeyse orayı da değerlendir.
+      var tepeler = [];
+      for (j = 0; j + 1 < nokta.length; j++) {
+        var za = nokta[j].z, zb = nokta[j + 1].z;
+        var f0 = nokta[j].th.gosterge, f1 = nokta[j + 1].th.gosterge;
+        var fm = noktaHesapla(k, (za + zb) / 2, 'ara').th.gosterge;
+        var c2 = 2 * f0 - 4 * fm + 2 * f1, c1 = -3 * f0 + 4 * fm - f1;
+        if (c2 < 0) {
+          var tt = -c1 / (2 * c2);
+          if (tt > 0 && tt < 1) tepeler.push(noktaHesapla(k, za + (zb - za) * tt, 'ara'));
+        }
+      }
+      nokta = nokta.concat(tepeler);
+      nokta.sort(function (p, q2) { return p.z - q2.z; });
+      var kr = nokta[0];
+      for (j = 1; j < nokta.length; j++) if (nokta[j].th.gosterge > kr.th.gosterge) kr = nokta[j];
+      var kayit = {
+        no: k + 1, aci: kat[k].aci, tabaka: kat[k].t, adet: kat[k].n, kalinlik: z[k + 1] - z[k],
+        zUst: z[k], zAlt: z[k + 1], Qb: Qb[k], ust: ust, alt: alt, noktalar: nokta,
+        kritik: kr, gosterge: kr.th.gosterge,
+        carpan: kr.th.gosterge > 0 ? 1 / Math.sqrt(kr.th.gosterge) : Infinity,
+        mod: modBul(kr)
+      };
+      sonKat.push(kayit);
+      if (kayit.gosterge > enb.gosterge) enb = { gosterge: kayit.gosterge, katman: k, nokta: kr };
+    }
+
+    return {
+      hatalar: [], Q: Q, h: h, z: z, A: A, B: B, D: D, eps0: eps0, kappa: kappa, katmanlar: sonKat,
+      gostergeEnb: enb.gosterge, kritikKatman: enb.katman, kritikNokta: enb.nokta,
+      carpan: enb.gosterge > 0 ? 1 / Math.sqrt(enb.gosterge) : Infinity,
+      mod: enb.nokta ? modBul(enb.nokta) : null, yuk: yuk.slice(0, 6)
+    };
+  }
+
+  // Tsai-Hill tek denklemdir, hasar biçimini kendisi söylemez. Biçim, göstergedeki en büyük
+  // katkıya bakılarak kestirilir: lif terimi (σ1/X)² ; matris terimleri (σ2/Y)² + (τ12/S)².
+  function modBul(nokta) {
+    var t = nokta.th;
+    if (!(t.gosterge > 0)) return { tur: 'yok', ad: '—', ayrinti: '' };
+    if (t.lif > t.enine + t.kayma)
+      return { tur: 'lif', ad: 'lif yönünde', ayrinti: nokta.s12[0] >= 0 ? 'lif çekmesi' : 'lif basması' };
+    var ay = t.kayma > t.enine ? 'düzlem içi kayma' : (nokta.s12[1] >= 0 ? 'life dik çekme' : 'life dik basma');
+    return { tur: 'matris', ad: 'life dik (matris)', ayrinti: ay };
+  }
+
+  return {
+    sayiOku: sayiOku, qMatris: qMatris, qDonusmus: qDonusmus, cosSin: cosSin,
+    malzemeEksenineCevir: malzemeEksenineCevir, tsaiHill: tsaiHill, dogrusalCoz: dogrusalCoz, hesapla: hesapla
+  };
+})();
+</script>
+
+<!-- ===================================================================== ARAYÜZ -->
+<script>
+(function () {
+  'use strict';
+  var C = LevhaCekirdek;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ------------------------------------------------------------------ tanımlar
+  var ALAN = {
+    E1: { ad: 'E₁', birim: 'GPa', carpan: 1e9, v: '53,78', grup: 'malz' },
+    E2: { ad: 'E₂', birim: 'GPa', carpan: 1e9, v: '17,93', grup: 'malz' },
+    nu12: { ad: 'ν₁₂', birim: '–', carpan: 1, v: '0,25', grup: 'malz' },
+    G12: { ad: 'G₁₂', birim: 'GPa', carpan: 1e9, v: '8,62', grup: 'malz' },
+    Xt: { ad: 'Xt', birim: 'MPa', carpan: 1e6, v: '1035', grup: 'malz', ipucu: 'lif yönü çekme' },
+    Xc: { ad: 'Xc', birim: 'MPa', carpan: 1e6, v: '1035', grup: 'malz', ipucu: 'lif yönü basma' },
+    Yt: { ad: 'Yt', birim: 'MPa', carpan: 1e6, v: '27,6', grup: 'malz', ipucu: 'life dik çekme' },
+    Yc: { ad: 'Yc', birim: 'MPa', carpan: 1e6, v: '138', grup: 'malz', ipucu: 'life dik basma' },
+    S: { ad: 'S', birim: 'MPa', carpan: 1e6, v: '41,4', grup: 'malz', ipucu: 'düzlem içi kayma' },
+    Nx: { ad: 'Nx', birim: 'N/m', carpan: 1, v: '1', grup: 'yuk' }, Ny: { ad: 'Ny', birim: 'N/m', carpan: 1, v: '0', grup: 'yuk' },
+    Nxy: { ad: 'Nxy', birim: 'N/m', carpan: 1, v: '0', grup: 'yuk' }, Mx: { ad: 'Mx', birim: 'N', carpan: 1, v: '0', grup: 'yuk' },
+    My: { ad: 'My', birim: 'N', carpan: 1, v: '0', grup: 'yuk' }, Mxy: { ad: 'Mxy', birim: 'N', carpan: 1, v: '0', grup: 'yuk' }
+  };
+  var ELASTIK = ['E1', 'E2', 'nu12', 'G12'], DAYANIM = ['Xt', 'Xc', 'Yt', 'Yc', 'S'], YUKLER = ['Nx', 'Ny', 'Nxy', 'Mx', 'My', 'Mxy'];
+  var ORNEK_KATMAN = [{ aci: '0', t: '0,127', n: '1' }, { aci: '90', t: '0,127', n: '10' }, { aci: '0', t: '0,127', n: '1' }];
+  var SONUC = {
+    sx: { ad: 'σx', uzun: 'σx — levha eksenleri', al: function (n) { return n.sxy[0]; }, i: 0, takim: 'sxy' },
+    sy: { ad: 'σy', uzun: 'σy — levha eksenleri', i: 1, takim: 'sxy' },
+    txy: { ad: 'τxy', uzun: 'τxy — levha eksenleri', i: 2, takim: 'sxy' },
+    s1: { ad: 'σ₁', uzun: 'σ₁ — malzeme eksenleri (lif yönü)', i: 0, takim: 's12' },
+    s2: { ad: 'σ₂', uzun: 'σ₂ — malzeme eksenleri (life dik)', i: 1, takim: 's12' },
+    t12: { ad: 'τ₁₂', uzun: 'τ₁₂ — malzeme eksenleri (kayma)', i: 2, takim: 's12' },
+    th: { ad: 'Hasar göstergesi', uzun: 'Hasar göstergesi (Tsai-Hill)', hasar: true }
+  };
+  var SONUC_SIRA = ['sx', 'sy', 'txy', 's1', 's2', 't12', 'th'];
+  var SEKME = [['mesaj', 'Mesajlar'], ['tablo', 'Gerilme tablosu'], ['hasar', 'Hasar tablosu'], ['matris', 'Matrisler'], ['grafik', 'Kalınlık boyunca grafik'], ['kabul', 'Kabuller']];
+  var KENAR = 100;   // çizimde levhanın kenarı (mm). Yalnız gösterim içindir; levha boyutu hesaba girmez.
+
+  // ------------------------------------------------------------------ durum
+  var D = {
+    girdi: {}, satirlar: [], secili: 'r:th', renk: 'th', kat: -1, sekme: 'mesaj',
+    kam: { az: 60, el: 25, zoom: 1, px: 0, py: 0 }, abart: 15, abartOto: true, aralik: 0, lif: true, etiket: true,
+    s: null, g: null, hat: [], geo: null, birim: { ad: 'Pa', carp: 1 }, mesajlar: [], sonImza: '', yuzler: [], imlec: -1
+  };
+  function ornekYukle() {
+    Object.keys(ALAN).forEach(function (k) { D.girdi[k] = ALAN[k].v; });
+    D.satirlar = ORNEK_KATMAN.map(function (s) { return { aci: s.aci, t: s.t, n: s.n }; });
+    D.kat = -1; D.abartOto = true;
+    if (D.secili.indexOf('kat:') === 0) D.secili = 'kat';
+  }
+
+  // ------------------------------------------------------------------ yardımcılar
+  function kacis(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  var USTEL = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  function fmt(x, hane) {
+    hane = hane || 4;
+    if (x === Infinity) return '∞';
+    if (!isFinite(x)) return '—';
+    if (x === 0) return '0';
+    var e = Math.floor(Math.log10(Math.abs(x)));
+    var m = x / Math.pow(10, e);
+    if (Math.abs(Number(m.toFixed(hane - 1))) >= 10) { m /= 10; e += 1; }
+    if (e < -3 || e >= 6) {
+      var us = String(e).split('').map(function (c) { return USTEL[c]; }).join('');
+      return m.toFixed(hane - 1).replace('.', ',') + '×10' + us;
+    }
+    return x.toFixed(Math.max(0, hane - 1 - e)).replace('.', ',');
+  }
+  function tmz(x, olcek) { return Math.abs(x) < 1e-11 * olcek ? 0 : x; }
+  function aciYaz(a) { return String(a).replace('.', ',') + '°'; }
+  function saat() { var d = new Date(); function p(n) { return (n < 10 ? '0' : '') + n; } return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); }
+  function mesaj(tur, metin) { D.mesajlar.push({ z: saat(), tur: tur, metin: metin }); if (D.mesajlar.length > 300) D.mesajlar.shift(); }
+  function enb3(M) { var m = 0; M.forEach(function (r) { r.forEach(function (v) { m = Math.max(m, Math.abs(v)); }); }); return m; }
+
+  // ------------------------------------------------------------------ girdi -> çekirdek
+  function girdiOku() {
+    var hat = [], g = { katmanlar: [], yuk: [] };
+    function oku(metin, alan, ad, carpan) {
+      var r = C.sayiOku(metin);
+      if (!r.tamam) { hat.push({ alan: alan, mesaj: ad + ': ' + r.hata + ' (yazılan: “' + metin + '”).' }); return NaN; }
+      return r.deger * carpan;
+    }
+    ELASTIK.concat(DAYANIM).forEach(function (k) { g[k] = oku(D.girdi[k], k, ALAN[k].ad, ALAN[k].carpan); });
+    YUKLER.forEach(function (k) { g.yuk.push(oku(D.girdi[k], k, ALAN[k].ad, 1)); });
+    D.satirlar.forEach(function (s, i) {
+      var no = (i + 1) + '. katman, ';
+      g.katmanlar.push({ aci: oku(s.aci, 'k' + i + '_aci', no + 'açı', 1), t: oku(s.t, 'k' + i + '_t', no + 'tabaka kalınlığı', 1e-3), n: oku(s.n, 'k' + i + '_n', no + 'tabaka adedi', 1) });
+    });
+    return { g: g, hatalar: hat };
+  }
+  function hataGrubu(alan) {
+    if (ALAN[alan]) return ALAN[alan].grup;
+    return 'kat';
+  }
+
+  // Bir katmanın içinde, üstten f (0..1) oranındaki derinlikte seçili sonucun değeri (Pa ya da birimsiz).
+  // Gerilme katman içinde doğrusaldır; hasar göstergesi o gerilmelerden çekirdeğin tsaiHill işleviyle bulunur.
+  function degerAl(k, f, tur) {
+    var t = SONUC[tur], u = k.ust, a = k.alt;
+    if (!t.hasar) return u[t.takim][t.i] + f * (a[t.takim][t.i] - u[t.takim][t.i]);
+    if (f === 0) return u.th.gosterge;
+    if (f === 1) return a.th.gosterge;
+    var s = [0, 1, 2].map(function (i) { return u.s12[i] + f * (a.s12[i] - u.s12[i]); });
+    return C.tsaiHill(s[0], s[1], s[2], D.g).gosterge;
+  }
+  // Seçili sonucun en büyük / en küçük değeri ve yeri
+  function aralikBul(tur) {
+    var s = D.s, t = SONUC[tur], mn = { v: Infinity }, mx = { v: -Infinity }, gEnb = D.gEnb;
+    function bak(v, k, yer) { if (v < mn.v) mn = { v: v, k: k, yer: yer }; if (v > mx.v) mx = { v: v, k: k, yer: yer }; }
+    s.katmanlar.forEach(function (k, i) {
+      if (!t.hasar) {
+        bak(tmz(degerAl(k, 0, tur), gEnb), i, 'üst yüz'); bak(tmz(degerAl(k, 1, tur), gEnb), i, 'alt yüz');
+      } else {
+        for (var j = 0; j <= 16; j++) bak(degerAl(k, j / 16, tur), i, j === 0 ? 'üst yüz' : j === 16 ? 'alt yüz' : 'katman içi');
+        bak(k.gosterge, i, k.kritik.yuz === 'ara' ? 'katman içi' : k.kritik.yuz + ' yüz');   // çekirdeğin bulduğu kesin en büyük
+      }
+    });
+    return { mn: mn, mx: mx };
+  }
+
+  // ------------------------------------------------------------------ renk
+  var GOK = [[32, 64, 255], [0, 200, 255], [40, 220, 90], [245, 240, 40], [255, 48, 32]];
+  function gokRenk(t) {
+    t = Math.max(0, Math.min(1, isFinite(t) ? t : 0.5));
+    var p = t * (GOK.length - 1), i = Math.min(GOK.length - 2, Math.floor(p)), f = p - i;
+    return [0, 1, 2].map(function (j) { return Math.round(GOK[i][j] + f * (GOK[i + 1][j] - GOK[i][j])); });
+  }
+  function rgb(c, isik) { isik = isik == null ? 1 : isik; return 'rgb(' + Math.round(c[0] * isik) + ',' + Math.round(c[1] * isik) + ',' + Math.round(c[2] * isik) + ')'; }
+  function aciRenk(aci) {
+    var a = ((aci % 180) + 180) % 180, h = a / 180 * 300 + 200, s = 0.42, l = 0.56;
+    var c = (1 - Math.abs(2 * l - 1)) * s, hp = (h % 360) / 60, x = c * (1 - Math.abs(hp % 2 - 1)), r = [0, 0, 0];
+    if (hp < 1) r = [c, x, 0]; else if (hp < 2) r = [x, c, 0]; else if (hp < 3) r = [0, c, x]; else if (hp < 4) r = [0, x, c]; else if (hp < 5) r = [x, 0, c]; else r = [c, 0, x];
+    var m = l - c / 2;
+    return r.map(function (v) { return Math.round((v + m) * 255); });
+  }
+
+  // ------------------------------------------------------------------ üç boyut
+  var tuval = $('tuval'), ctx = tuval.getContext('2d');
+  function capraz(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function nokta(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function birim(a) { var n = Math.sqrt(nokta(a, a)) || 1; return [a[0] / n, a[1] / n, a[2] / n]; }
+  // z ekseni aşağı doğrudur (1. katman üstte); ekranda "yukarı" = −z. Sağ el takımı korunur.
+  function kameraKur() {
+    var az = D.kam.az * Math.PI / 180, el = Math.max(-89.5, Math.min(89.5, D.kam.el)) * Math.PI / 180;
+    var d = [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), -Math.sin(el)];   // modelden kameraya
+    var f = [-d[0], -d[1], -d[2]];
+    var r = birim(capraz(f, [0, 0, -1]));
+    var u = capraz(r, f);
+    return { d: d, f: f, r: r, u: u };
+  }
+  // Girdiden çizim geometrisi (çözüm olmasa da çizilebilsin)
+  function geometriKur() {
+    var kat = [], h = 0;
+    for (var i = 0; i < D.satirlar.length; i++) {
+      var a = C.sayiOku(D.satirlar[i].aci), t = C.sayiOku(D.satirlar[i].t), n = C.sayiOku(D.satirlar[i].n);
+      if (!a.tamam || !t.tamam || !n.tamam || !(t.deger > 0) || n.deger < 1 || Math.floor(n.deger) !== n.deger) return null;
+      kat.push({ aci: a.deger, kal: t.deger * n.deger });
+      h += t.deger * n.deger;
+    }
+    if (!kat.length || !(h > 0) || !isFinite(h)) return null;
+    return { kat: kat, h: h };   // mm
+  }
+  function abartHesapla() {
+    if (D.abartOto && D.geo) D.abart = Math.max(1, Math.min(1000, Math.round(22 / D.geo.h)));
+  }
+  // kaydırıcı 0..100 <-> abartma 1..1000 (logaritmik)
+  function abartKaydir(v) { return Math.round(Math.pow(1000, v / 100)); }
+  function abartTers(a) { return Math.round(Math.log(a) / Math.log(1000) * 100); }
+
+  function ciz() {
+    var kutu = $('gorunum'), W = kutu.clientWidth, H = kutu.clientHeight, dpr = window.devicePixelRatio || 1;
+    if (tuval.width !== Math.round(W * dpr) || tuval.height !== Math.round(H * dpr)) { tuval.width = Math.round(W * dpr); tuval.height = Math.round(H * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    D.yuzler = [];
+    var kam = kameraKur();
+    if (D.geo) modelCiz(W, H, kam);
+    eksenCiz(H, kam);
+  }
+
+  function modelCiz(W, H, kam) {
+    var geo = D.geo, n = geo.kat.length, bosluk = D.aralik / 100 * 30, i, j;
+    var kal = geo.kat.map(function (k) { return k.kal * D.abart; });
+    var top = kal.reduce(function (a, b) { return a + b; }, 0) + bosluk * (n - 1);
+    var z0 = [], zz = -top / 2;
+    for (i = 0; i < n; i++) { z0.push(zz); zz += kal[i] + bosluk; }
+    var yar = KENAR / 2, R = Math.sqrt(2 * yar * yar + top * top / 4);
+    var S = 0.52 * Math.min(W, H) / R * D.kam.zoom, cx = W / 2 + D.kam.px, cy = H / 2 + D.kam.py;
+    function iz(p) { return [cx + nokta(p, kam.r) * S, cy - nokta(p, kam.u) * S]; }
+    var sonucVar = D.s && D.renk !== 'geo' && D.s.katmanlar.length === n;
+    var ar = sonucVar ? aralikBul(D.renk) : null;
+    function renkOran(v) { return ar.mx.v > ar.mn.v ? (v - ar.mn.v) / (ar.mx.v - ar.mn.v) : 0.5; }
+    function degerRenk(k, f) {
+      var v = degerAl(D.s.katmanlar[k], f, D.renk);
+      if (!SONUC[D.renk].hasar) v = tmz(v, D.gEnb);
+      return gokRenk(renkOran(v));
+    }
+    var sira = [];
+    for (i = 0; i < n; i++) sira.push(i);
+    sira.sort(function (a, b) { return (z0[b] + kal[b] / 2) * kam.f[2] - (z0[a] + kal[a] / 2) * kam.f[2]; });   // uzaktaki önce
+    var YAN = [[1, 0, 0], [0, 1, 0], [-1, 0, 0], [0, -1, 0]];
+    var etiketler = [], seciliYan = [];
+
+    sira.forEach(function (k) {
+      var za = z0[k], zb = za + kal[k], aci = geo.kat[k].aci, cs = C.cosSin(aci), lif = [cs[0], cs[1], 0];
+      var secili = k === D.kat, taban = sonucVar ? null : aciRenk(aci);
+      var kose = [[yar, yar], [-yar, yar], [-yar, -yar], [yar, -yar]];   // +x+y'den başlayıp z etrafında
+      // --- üst ve alt yüz
+      [[za, [0, 0, -1], 0], [zb, [0, 0, 1], 1]].forEach(function (y) {
+        if (nokta(y[1], kam.d) <= 1e-6) return;
+        var pts = kose.map(function (c) { return iz([c[0], c[1], y[0]]); });
+        yol(pts);
+        ctx.fillStyle = sonucVar ? rgb(degerRenk(k, y[2])) : rgb(taban, 1);
+        ctx.fill();
+        if (D.lif) {
+          ctx.save(); yol(pts); ctx.clip();
+          ctx.strokeStyle = sonucVar ? 'rgba(0,0,0,.34)' : 'rgba(255,255,255,.42)'; ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (var o = -70; o <= 70; o += 5) {
+            var a = iz([-lif[1] * o - lif[0] * 75, lif[0] * o - lif[1] * 75, y[0]]), b = iz([-lif[1] * o + lif[0] * 75, lif[0] * o + lif[1] * 75, y[0]]);
+            ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+          }
+          ctx.stroke(); ctx.restore();
+        }
+        kenar(pts, secili);
+        D.yuzler.push({ k: k, pts: pts });
+      });
+      // --- yan yüzler
+      YAN.forEach(function (nrm, q) {
+        if (nokta(nrm, kam.d) <= 1e-6) return;
+        var c0 = kose[(q + 3) % 4], c1 = kose[q];   // normali nrm olan yüzün iki köşesi
+        if (q === 0) { c0 = kose[3]; c1 = kose[0]; } else if (q === 1) { c0 = kose[0]; c1 = kose[1]; } else if (q === 2) { c0 = kose[1]; c1 = kose[2]; } else { c0 = kose[2]; c1 = kose[3]; }
+        var P0 = iz([c0[0], c0[1], za]), P1 = iz([c1[0], c1[1], za]), P2 = iz([c1[0], c1[1], zb]), P3 = iz([c0[0], c0[1], zb]);
+        var pts = [P0, P1, P2, P3];
+        yol(pts);
+        if (sonucVar) {
+          var e = [P1[0] - P0[0], P1[1] - P0[1]], v = [P3[0] - P0[0], P3[1] - P0[1]], ee = e[0] * e[0] + e[1] * e[1];
+          var o = ee > 0 ? (v[0] * e[0] + v[1] * e[1]) / ee : 0, gx = v[0] - o * e[0], gy = v[1] - o * e[1];
+          if (gx * gx + gy * gy < 0.25) ctx.fillStyle = rgb(degerRenk(k, 0.5));
+          else {
+            var gr = ctx.createLinearGradient(P0[0], P0[1], P0[0] + gx, P0[1] + gy), adim = SONUC[D.renk].hasar ? 12 : 4;
+            for (j = 0; j <= adim; j++) gr.addColorStop(j / adim, rgb(degerRenk(k, j / adim)));
+            ctx.fillStyle = gr;
+          }
+        } else ctx.fillStyle = rgb(taban, q % 2 ? 0.80 : 0.66);
+        ctx.fill();
+        // lif kesitleri: lif yüze paralelse çizgi, dikse nokta, eğikse kısa çizgi (kesit elipsi 1/|lif·normal| kadar uzar)
+        var ekranYuk = Math.sqrt((P3[0] - P0[0]) * (P3[0] - P0[0]) + (P3[1] - P0[1]) * (P3[1] - P0[1]));
+        var ekranGen = Math.sqrt((P1[0] - P0[0]) * (P1[0] - P0[0]) + (P1[1] - P0[1]) * (P1[1] - P0[1]));
+        if (D.lif && ekranYuk > 3 && ekranGen > 3) {
+          var fn = Math.abs(nokta(lif, nrm)), satir = Math.max(1, Math.min(16, Math.round(ekranYuk / 7))), ol = ekranGen / KENAR;
+          ctx.save();
+          ctx.strokeStyle = sonucVar ? 'rgba(0,0,0,.38)' : 'rgba(255,255,255,.45)';
+          ctx.lineWidth = Math.max(1, Math.min(2, ekranYuk / satir * 0.3)); ctx.lineCap = 'butt';
+          for (j = 0; j < satir; j++) {
+            var fr = (j + 0.5) / satir, A = [P0[0] + (P3[0] - P0[0]) * fr, P0[1] + (P3[1] - P0[1]) * fr], B = [P1[0] + (P2[0] - P1[0]) * fr, P1[1] + (P2[1] - P1[1]) * fr];
+            if (fn < 0.03) ctx.setLineDash([]);
+            else { var per = Math.min(5 / fn, 400) * ol, dol = Math.max(1.2, per * 0.42); ctx.setLineDash([dol, Math.max(1.5, per - dol)]); ctx.lineDashOffset = j % 2 ? per / 2 : 0; }
+            ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+          }
+          ctx.restore();
+        }
+        kenar(pts, false);
+        if (secili) seciliYan.push(pts);
+        D.yuzler.push({ k: k, pts: pts });
+        etiketler.push({ k: k, x: Math.max(P1[0], P0[0]), y: (P1[0] > P0[0] ? (P1[1] + P2[1]) / 2 : (P0[1] + P3[1]) / 2), yuk: ekranYuk });
+      });
+    });
+    // seçili katmanın yan yüz çerçevesi (yan yüzler başka katmanca örtülmez)
+    seciliYan.forEach(function (pts) { ctx.save(); yol(pts); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore(); });
+    // etiketler: her katman için en sağdaki düşey kenarın yanına
+    if (D.etiket) {
+      var enSag = {};
+      etiketler.forEach(function (e) { if (!enSag[e.k] || e.x > enSag[e.k].x) enSag[e.k] = e; });
+      var liste = Object.keys(enSag).map(function (k) { return enSag[k]; }).sort(function (a, b) { return a.y - b.y; }), sonY = -1e9;
+      ctx.save(); ctx.font = '12px "Segoe UI", Arial, sans-serif'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      liste.forEach(function (e) {
+        if (e.y - sonY < 13) return;
+        sonY = e.y;
+        var yazi = (e.k + 1) + ' · ' + aciYaz(geo.kat[e.k].aci);
+        ctx.strokeStyle = 'rgba(10,12,15,.85)'; ctx.lineWidth = 3; ctx.strokeText(yazi, e.x + 9, e.y);
+        ctx.fillStyle = e.k === D.kat ? '#ffffff' : '#cfd6de'; ctx.fillText(yazi, e.x + 9, e.y);
+      });
+      ctx.restore();
+    }
+  }
+  function yol(pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); }
+  function kenar(pts, secili) {
+    yol(pts); ctx.lineJoin = 'round';
+    ctx.strokeStyle = secili ? '#ffffff' : 'rgba(8,10,12,.75)'; ctx.lineWidth = secili ? 2.4 : 1; ctx.stroke();
+  }
+  function eksenCiz(H, kam) {
+    var ox = 58, oy = H - 54, L = 36;
+    var eks = [['x', [1, 0, 0], '#ff5a4d'], ['y', [0, 1, 0], '#5fd38a'], ['z', [0, 0, 1], '#5aa9ff']];
+    eks.sort(function (a, b) { return nokta(b[1], kam.f) - nokta(a[1], kam.f); });
+    ctx.save(); ctx.lineCap = 'round'; ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(22,25,29,.55)'; ctx.beginPath(); ctx.arc(ox, oy, 50, 0, 2 * Math.PI); ctx.fill();
+    eks.forEach(function (e) {
+      var x = nokta(e[1], kam.r), y = -nokta(e[1], kam.u), ux = ox + x * L, uy = oy + y * L, n = Math.sqrt(x * x + y * y);
+      ctx.strokeStyle = e[2]; ctx.fillStyle = e[2]; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ux, uy); ctx.stroke();
+      if (n > 0.15) {
+        var bx = x / n, by = y / n;
+        ctx.beginPath(); ctx.moveTo(ux + bx * 6, uy + by * 6); ctx.lineTo(ux - by * 3.5, uy + bx * 3.5); ctx.lineTo(ux + by * 3.5, uy - bx * 3.5); ctx.closePath(); ctx.fill();
+        ctx.fillText(e[0], ux + bx * 15, uy + by * 15);
+      } else { ctx.beginPath(); ctx.arc(ox, oy, 4, 0, 2 * Math.PI); ctx.fill(); ctx.fillText(e[0], ox + 11, oy - 11); }
+    });
+    ctx.restore();
+  }
+  function katmanBul(x, y) {
+    for (var i = D.yuzler.length - 1; i >= 0; i--) {
+      var p = D.yuzler[i].pts, ic = false;
+      for (var a = 0, b = p.length - 1; a < p.length; b = a++) {
+        if ((p[a][1] > y) !== (p[b][1] > y) && x < (p[b][0] - p[a][0]) * (y - p[a][1]) / (p[b][1] - p[a][1]) + p[a][0]) ic = !ic;
+      }
+      if (ic) return D.yuzler[i].k;
+    }
+    return -1;
+  }
+
+  // ------------------------------------------------------------------ renk skalası ve görünüm yazıları
+  function skalaYaz() {
+    var s = D.s, o = '';
+    if (!D.geo) { $('skala').style.display = 'none'; $('bilgi').innerHTML = ''; return; }
+    $('skala').style.display = 'block';
+    var alt = 'Kalınlık çizimde ×' + D.abart + ' abartılı' + (D.aralik > 0 ? ' · katmanlar ayrık' : '');
+    if (!s || D.renk === 'geo') {
+      var gor = {};
+      o = '<div class="sb">Lif açısı</div><div class="acilar">';
+      D.geo.kat.forEach(function (k) { var a = String(k.aci); if (gor[a]) return; gor[a] = 1; o += '<div><i style="background:' + rgb(aciRenk(k.aci)) + '"></i>' + aciYaz(k.aci) + '</div>'; });
+      o += '</div>';
+      $('skala').innerHTML = o;
+      $('bilgi').innerHTML = '<div class="b1">Geometri — lif açısına göre</div><div class="b2">' + alt + '</div>';
+      return;
+    }
+    var t = SONUC[D.renk], ar = aralikBul(D.renk), carp = t.hasar ? 1 : D.birim.carp, br = t.hasar ? '–' : D.birim.ad, i;
+    var dur = GOK.slice().reverse().map(function (c, i) { return rgb(c) + ' ' + (i / (GOK.length - 1) * 100) + '%'; }).join(',');
+    o = '<div class="sb">' + t.ad + ' (' + br + ')</div><div class="cubuk"><div class="renkler" style="background:linear-gradient(' + dur + ')"></div><div class="cizgiler">';
+    for (i = 0; i <= 8; i++) o += '<div>' + fmt((ar.mx.v - (ar.mx.v - ar.mn.v) * i / 8) * carp, 4) + '</div>';
+    o += '</div></div>';
+    function yer(u) { return (u.k + 1) + '. katman (' + aciYaz(s.katmanlar[u.k].aci) + '), ' + u.yer; }
+    o += '<div class="uc">En büyük: <b>' + fmt(ar.mx.v * carp, 5) + '</b><span>' + yer(ar.mx) + '</span>En küçük: <b>' + fmt(ar.mn.v * carp, 5) + '</b><span>' + yer(ar.mn) + '</span></div>';
+    if (ar.mx.v === ar.mn.v) o += '<div class="not">Her yerde aynı değer.</div>';
+    $('skala').innerHTML = o;
+    var yuk = YUKLER.map(function (k, i) { return s.yuk[i] !== 0 ? k + ' = ' + fmt(s.yuk[i], 5) + ' ' + ALAN[k].birim : null; }).filter(Boolean).join(', ') || 'yük yok';
+    $('bilgi').innerHTML = '<div class="b1">' + t.uzun + '</div><div class="b2">Yük: ' + yuk + '</div><div class="b2">' + alt + '</div>';
+  }
+
+  // ------------------------------------------------------------------ proje ağacı
+  function agacYaz() {
+    var s = D.s, hg = {}, o = '';
+    D.hat.forEach(function (h) { hg[hataGrubu(h.alan)] = (hg[hataGrubu(h.alan)] || 0) + 1; });
+    function dg(id, seviye, sim, ad, ek, sinif, ok) {
+      o += '<div class="dugum' + (D.secili === id ? ' secili' : '') + (sinif ? ' ' + sinif : '') + '" data-id="' + id + '" style="padding-left:' + (6 + seviye * 15) + 'px">' +
+        '<span class="ok">' + (ok ? '▾' : '') + '</span><span class="sim ' + sim + '"></span>' + ad + (hg[id] ? '<span class="rozet" title="Girdi hatası">! ' + hg[id] + '</span>' : '') +
+        (ek ? '<span class="ek">' + ek + '</span>' : '') + '</div>';
+    }
+    dg('geo', 0, 'proje', '<b>Levha modeli</b>', D.geo ? fmt(D.geo.h, 4) + ' mm' : '', D.renk === 'geo' ? 'renkli' : '', true);
+    dg('malz', 1, 'malz', 'Malzeme', 'tek yönlü tabaka');
+    dg('kat', 1, 'kat', 'Katmanlar', D.satirlar.length + ' satır', '', true);
+    D.satirlar.forEach(function (r, i) { dg('kat:' + i, 2, 'tek', (i + 1) + ' · ' + kacis(r.aci) + '°', kacis(r.n) + ' × ' + kacis(r.t) + ' mm'); });
+    dg('yuk', 1, 'yuk', 'Yükler', YUKLER.filter(function (k) { var r = C.sayiOku(D.girdi[k]); return r.tamam && r.deger !== 0; }).join(', ') || '—');
+    dg('coz', 1, 'coz', 'Çözüm', s ? (s.gostergeEnb > 0 ? 'ilk hasar × ' + fmt(s.carpan, 5) : 'yük yok') : '<span style="color:var(--hata)">yok</span>', '', true);
+    var sl = s ? '' : 'soluk';
+    dg('ust:xy', 2, 'klasor', 'Gerilmeler — levha eksenleri', '', sl, true);
+    ['sx', 'sy', 'txy'].forEach(function (k) { dg('r:' + k, 3, 'son', SONUC[k].ad, '', sl + (D.renk === k ? ' renkli' : '')); });
+    dg('ust:12', 2, 'klasor', 'Gerilmeler — malzeme eksenleri', '', sl, true);
+    ['s1', 's2', 't12'].forEach(function (k) { dg('r:' + k, 3, 'son', SONUC[k].ad, '', sl + (D.renk === k ? ' renkli' : '')); });
+    dg('r:th', 2, 'son', 'Hasar göstergesi (Tsai-Hill)', s && s.gostergeEnb > 0 ? fmt(s.gostergeEnb, 3) : '', sl + (D.renk === 'th' ? ' renkli' : ''));
+    dg('t:tablo', 2, 'tab', 'Gerilme tablosu', '', sl);
+    dg('t:hasar', 2, 'tab', 'Hasar tablosu', '', sl);
+    dg('t:matris', 2, 'tab', 'A-B-D, Q, Q̄ matrisleri, gerinimler', '', sl);
+    dg('t:grafik', 2, 'tab', 'Kalınlık boyunca grafik', '', sl);
+    $('agac').innerHTML = o;
+  }
+
+  // ------------------------------------------------------------------ ayrıntı paneli
+  function alanYaz(k) {
+    var a = ALAN[k];
+    return '<label class="alan"><span>' + a.ad + '</span> (' + a.birim + ')' + (a.ipucu ? ' · ' + a.ipucu : '') +
+      '<input type="text" inputmode="decimal" autocomplete="off" id="' + k + '" data-g="' + k + '" value="' + kacis(D.girdi[k]) + '"></label>';
+  }
+  function katGiris(i, alan) {
+    return '<input type="text" inputmode="decimal" autocomplete="off" id="k' + i + '_' + alan + '" data-i="' + i + '" data-a="' + alan + '" value="' + kacis(D.satirlar[i][alan]) + '">';
+  }
+  function katDugme(i) {
+    return '<button class="kucuk" data-is="yukari" data-i="' + i + '" title="Yukarı taşı"' + (i === 0 ? ' disabled' : '') + '>↑</button> ' +
+      '<button class="kucuk" data-is="asagi" data-i="' + i + '" title="Aşağı taşı"' + (i === D.satirlar.length - 1 ? ' disabled' : '') + '>↓</button> ' +
+      '<button class="kucuk" data-is="sil" data-i="' + i + '" title="Katmanı sil">✕</button>';
+  }
+  // Girdi kısmı: yalnız seçim ya da tablo yapısı değişince yeniden yazılır (yazarken imleç kaybolmasın)
+  function ayrintiGirdiYaz() {
+    var id = D.secili, o = '', bas = 'Ayrıntı';
+    if (id === 'malz') {
+      bas = 'Ayrıntı — Malzeme';
+      o = '<h4>Tek yönlü tabaka malzemesi</h4><h5>Elastik sabitler</h5><div class="izgara">' + ELASTIK.map(alanYaz).join('') +
+        '</div><h5>Dayanımlar (pozitif büyüklük)</h5><div class="izgara">' + DAYANIM.map(alanYaz).join('') + '</div>' +
+        '<p class="not">Ondalık için virgül de nokta da yazılabilir. Değer değişince çözüm kendiliğinden yenilenir.</p>';
+    } else if (id === 'yuk') {
+      bas = 'Ayrıntı — Yükler';
+      o = '<h4>Yük (birim genişlik başına)</h4><h5>Düzlem içi kuvvetler</h5><div class="izgara">' + ['Nx', 'Ny', 'Nxy'].map(alanYaz).join('') +
+        '</div><h5>Momentler</h5><div class="izgara">' + ['Mx', 'My', 'Mxy'].map(alanYaz).join('') + '</div>' +
+        '<p class="not">Momentler N·m/m = N birimindedir. Pozitif Mx alt yüzde (z &gt; 0) çekme yaratır.</p>';
+    } else if (id === 'kat') {
+      bas = 'Ayrıntı — Katmanlar';
+      o = '<h4>Katman tablosu</h4><table id="katEditor"><thead><tr><th class="sol">#</th><th class="sol">Açı (°)</th><th class="sol">Tabaka (mm)</th><th class="sol">Adet</th><th></th></tr></thead><tbody>' +
+        (D.satirlar.map(function (s, i) {
+          return '<tr><td class="sol" style="color:var(--soluk)">' + (i + 1) + '</td><td>' + katGiris(i, 'aci') + '</td><td>' + katGiris(i, 't') + '</td><td>' + katGiris(i, 'n') + '</td><td>' + katDugme(i) + '</td></tr>';
+        }).join('') || '<tr><td colspan="5" class="sol" style="color:var(--soluk)">Tablo boş.</td></tr>') +
+        '</tbody></table><p style="margin:8px 0 0"><button data-komut="satirEkle">+ Katman ekle</button> <button data-komut="ornek">Örneğe dön</button></p>' +
+        '<p class="not">1. satır levhanın üst yüzündedir (z = −h/2); z ekseni aşağıya, son satıra doğrudur. Açı, x ekseninden lif yönüne (x’ten y’ye doğru) ölçülür. Aynı satırdaki tabakalar tek blok hesaplanır.</p>';
+    } else if (id.indexOf('kat:') === 0) {
+      var i = Number(id.slice(4));
+      bas = 'Ayrıntı — ' + (i + 1) + '. katman';
+      o = '<h4>' + (i + 1) + '. katman</h4><div class="izgara" style="grid-template-columns:1fr 1fr 1fr">' +
+        '<label class="alan"><span>Açı</span> (°)' + katGiris(i, 'aci') + '</label><label class="alan"><span>Tabaka</span> (mm)' + katGiris(i, 't') + '</label><label class="alan"><span>Adet</span>' + katGiris(i, 'n') + '</label></div>' +
+        '<p style="margin:6px 0 0">' + katDugme(i) + '</p>';
+    } else if (id.indexOf('r:') === 0) bas = 'Ayrıntı — ' + SONUC[id.slice(2)].ad;
+    else if (id === 'coz') bas = 'Ayrıntı — Çözüm';
+    else if (id === 'geo') bas = 'Ayrıntı — Levha modeli';
+    $('ayrintiBas').textContent = bas;
+    $('ayrintiGirdi').innerHTML = o;
+    hataIsaretle();
+  }
+  function hataIsaretle() {
+    Array.prototype.forEach.call(document.querySelectorAll('input.hatali'), function (e) { e.classList.remove('hatali'); });
+    D.hat.forEach(function (h) { var e = $(h.alan); if (e && e.tagName === 'INPUT') e.classList.add('hatali'); });
+  }
+  function ozetKartlari(s) {
+    var o = '<div class="kartlar"><div class="kart"><div class="k">Toplam kalınlık h</div><div class="v">' + fmt(s.h * 1e3, 5) + ' mm</div><div class="a">' + s.katmanlar.length + ' katman, ' +
+      s.katmanlar.reduce(function (a, k) { return a + k.adet; }, 0) + ' tabaka</div></div>';
+    if (s.gostergeEnb > 0) {
+      var kr = s.katmanlar[s.kritikKatman];
+      o += '<div class="kart"><div class="k">En büyük hasar göstergesi</div><div class="v">' + fmt(s.gostergeEnb, 4) + '</div><div class="a">1 olunca hasar başlar</div></div>';
+      o += '<div class="kart"><div class="k">İlk hasar için yük çarpanı</div><div class="v">× ' + fmt(s.carpan, 5) + '</div><div class="a">girilen yükün bu katında</div></div>';
+      o += '<div class="kart"><div class="k">İlk hasar katmanı</div><div class="v">' + kr.no + '. katman (' + aciYaz(kr.aci) + ')</div><div class="a">' +
+        (s.kritikNokta.yuz === 'ara' ? 'katman içinde' : s.kritikNokta.yuz + ' yüzünde') + ', z = ' + fmt(tmz(s.kritikNokta.z, s.h) * 1e3, 4) + ' mm</div></div>';
+      o += '<div class="kart"><div class="k">Hasar biçimi</div><div class="v">' + s.mod.ad + '</div><div class="a">' + s.mod.ayrinti + '</div></div>';
+      var parca = [];
+      YUKLER.forEach(function (k, i) { if (s.yuk[i] !== 0) parca.push(k + ' = ' + fmt(s.yuk[i] * s.carpan, 5) + ' ' + ALAN[k].birim); });
+      o += '<div class="kart"><div class="k">İlk hasar yükü</div><div class="v" style="font-size:12.5px">' + parca.join('<br>') + '</div></div>';
+      if (s.carpan < 1) o += '<div class="kart genis uyari">Girilen yük ilk hasar sınırının üstünde (çarpan 1’den küçük).</div>';
+    } else o += '<div class="kart"><div class="k">Hasar</div><div class="v">yük yok</div><div class="a">bütün yükler sıfır; hasar çarpanı tanımsız</div></div>';
+    return o + '</div>';
+  }
+  // Sonuç kısmı: her yenilemede yeniden yazılır
+  function ayrintiSonucYaz() {
+    var id = D.secili, s = D.s, o = '', br = D.birim, c = br.carp, g = D.gEnb;
+    function yok() { return '<p class="not uyari">Çözüm yok. Girdideki hatalar “Mesajlar” sekmesinde yazıyor.</p>'; }
+    if (id === 'malz' || id === 'yuk' || id === 'kat') o = '';
+    else if (id === 'geo') {
+      o = '<h4>Levha modeli</h4>';
+      o += s ? ozetKartlari(s) : yok();
+      o += '<p class="not">Üç boyutlu görünümde levhanın kenarı ' + KENAR + ' mm alınır; bu yalnız gösterim içindir. Klasik laminasyon teorisinde levhanın boyu ve eni hesaba girmez; yükler birim genişlik başınadır.</p>';
+    } else if (id === 'coz') o = '<h4>İlk hasar özeti</h4>' + (s ? ozetKartlari(s) : yok());
+    else if (id.indexOf('t:') === 0) o = '<h4>' + { tablo: 'Gerilme tablosu', hasar: 'Hasar tablosu', matris: 'Matrisler ve gerinimler', grafik: 'Kalınlık boyunca grafik' }[id.slice(2)] + '</h4><p class="not">Alt panelde açıldı.</p>' + (s ? ozetKartlari(s) : yok());
+    else if (id.indexOf('ust:') === 0) o = '<h4>Gerilmeler</h4><p class="not">Altındaki bileşenlerden birini seçin; model o bileşene göre renklenir.</p>';
+    else if (id.indexOf('kat:') === 0) {
+      var i = Number(id.slice(4));
+      if (!s || !s.katmanlar[i]) o = yok();
+      else {
+        var k = s.katmanlar[i];
+        o = '<h5>Geometri</h5><table><tr><td class="sol">Katman kalınlığı</td><td>' + fmt(k.kalinlik * 1e3, 5) + ' mm</td></tr><tr><td class="sol">z, üst yüz</td><td>' + fmt(tmz(k.zUst, s.h) * 1e3, 5) +
+          ' mm</td></tr><tr><td class="sol">z, alt yüz</td><td>' + fmt(tmz(k.zAlt, s.h) * 1e3, 5) + ' mm</td></tr></table>';
+        o += '<h5>Gerilmeler (' + br.ad + ')</h5><table><thead><tr><th class="sol"></th><th>üst yüz</th><th>alt yüz</th></tr></thead><tbody>';
+        ['sx', 'sy', 'txy', 's1', 's2', 't12'].forEach(function (t) {
+          o += '<tr' + (D.renk === t ? ' class="seciliSatir"' : '') + '><td class="sol">' + SONUC[t].ad + '</td><td>' + fmt(tmz(degerAl(k, 0, t), g) * c, 5) + '</td><td>' + fmt(tmz(degerAl(k, 1, t), g) * c, 5) + '</td></tr>';
+        });
+        o += '</tbody></table><h5>Hasar (Tsai-Hill)</h5><table><tr><td class="sol">Gösterge, üst yüz</td><td>' + fmt(k.ust.th.gosterge, 4) + '</td></tr><tr><td class="sol">Gösterge, alt yüz</td><td>' + fmt(k.alt.th.gosterge, 4) +
+          '</td></tr><tr><td class="sol">En büyük' + (k.kritik.yuz === 'ara' ? ' (katman içinde)' : '') + '</td><td>' + fmt(k.gosterge, 4) + '</td></tr><tr><td class="sol">Yük çarpanı</td><td>' + fmt(k.carpan, 5) +
+          '</td></tr><tr><td class="sol">Baskın biçim</td><td>' + k.mod.ad + (k.mod.ayrinti ? ' — ' + k.mod.ayrinti : '') + '</td></tr></table>';
+        if (s.gostergeEnb > 0 && i === s.kritikKatman) o += '<p class="not" style="color:var(--vurgu2)">İlk hasar bu katmanda başlıyor.</p>';
+        o += '<h5>[Q̄] (GPa)</h5>' + matrisTablo(k.Qb, enb3(s.Q), 1e-9);
+      }
+    } else if (id.indexOf('r:') === 0) {
+      var tur = id.slice(2), t = SONUC[tur];
+      if (!s) o = '<h4>' + t.uzun + '</h4>' + yok();
+      else {
+        var ar = aralikBul(tur), cc = t.hasar ? 1 : c;
+        o = '<h4>' + t.uzun + '</h4>';
+        if (t.hasar) o += ozetKartlari(s);
+        else o += '<div class="kartlar"><div class="kart"><div class="k">En büyük (' + br.ad + ')</div><div class="v">' + fmt(ar.mx.v * cc, 5) + '</div><div class="a">' + (ar.mx.k + 1) + '. katman, ' + ar.mx.yer +
+          '</div></div><div class="kart"><div class="k">En küçük (' + br.ad + ')</div><div class="v">' + fmt(ar.mn.v * cc, 5) + '</div><div class="a">' + (ar.mn.k + 1) + '. katman, ' + ar.mn.yer + '</div></div></div>';
+        o += '<h5>Katman katman' + (t.hasar ? '' : ' (' + br.ad + ')') + '</h5><table><thead><tr><th class="sol">Katman</th><th>üst yüz</th><th>alt yüz</th>' + (t.hasar ? '<th>en büyük</th><th>çarpan</th>' : '') + '</tr></thead><tbody>';
+        s.katmanlar.forEach(function (k, i) {
+          var u = degerAl(k, 0, tur), a = degerAl(k, 1, tur);
+          if (!t.hasar) { u = tmz(u, g); a = tmz(a, g); }
+          o += '<tr class="tik' + (i === D.kat ? ' seciliSatir' : '') + (s.gostergeEnb > 0 && i === s.kritikKatman && t.hasar ? ' kritik' : '') + '" data-kat="' + i + '"><td class="sol">' + k.no + ' (' + aciYaz(k.aci) + ')</td><td>' +
+            fmt(u * cc, t.hasar ? 4 : 5) + '</td><td>' + fmt(a * cc, t.hasar ? 4 : 5) + '</td>' + (t.hasar ? '<td>' + fmt(k.gosterge, 4) + '</td><td>' + fmt(k.carpan, 5) + '</td>' : '') + '</tr>';
+        });
+        o += '</tbody></table>';
+        if (t.hasar) o += '<p class="not">Gösterge = (σ₁/X)² − σ₁σ₂/X² + (σ₂/Y)² + (τ₁₂/S)². Yük çarpanı = 1/√gösterge. Renk skalasındaki en küçük değer katman başına 17 noktadan bulunur; en büyük değer çözücünün kesin sonucudur.</p>';
+      }
+    }
+    $('ayrintiSonuc').innerHTML = o;
+  }
+  function matrisTablo(M, olcek, carp) {
+    var o = '<table class="matris">';
+    for (var i = 0; i < 3; i++) { o += '<tr>'; for (var j = 0; j < 3; j++) o += '<td>' + fmt(tmz(M[i][j], olcek) * (carp || 1), 5) + '</td>'; o += '</tr>'; }
+    return o + '</table>';
+  }
+
+  // ------------------------------------------------------------------ alt panel
+  function sekmeYaz() {
+    $('sekmeler').innerHTML = SEKME.map(function (x) {
+      return '<div class="sekme' + (D.sekme === x[0] ? ' acik' : '') + '" data-sekme="' + x[0] + '">' + x[1] + (x[0] === 'mesaj' && D.hat.length ? '<span class="say">' + D.hat.length + '</span>' : '') + '</div>';
+    }).join('');
+  }
+  function altYaz() {
+    var s = D.s, o = '', br = D.birim, c = br.carp, g = D.gEnb, kutu = $('altIc');
+    function yok() { return '<div class="ic uyari">Çözüm yok — girdideki hatalar “Mesajlar” sekmesinde.</div>'; }
+    if (D.sekme === 'mesaj') {
+      o = D.mesajlar.map(function (m) { return '<div class="mesaj ' + m.tur + '">' + m.z + '  ' + kacis(m.metin) + '</div>'; }).join('');
+      kutu.innerHTML = o; kutu.scrollTop = kutu.scrollHeight; return;
+    }
+    if (D.sekme === 'kabul') {
+      o = '<div class="ic" style="max-width:1300px;line-height:1.55">' + KABUL + '</div>';
+    } else if (!s) o = yok();
+    else if (D.sekme === 'tablo') {
+      o = '<table><thead><tr><th class="sol">Katman</th><th class="sol">Yüz</th><th>z (mm)</th><th>σx (' + br.ad + ')</th><th>σy (' + br.ad + ')</th><th>τxy (' + br.ad + ')</th><th>σ₁ (' + br.ad + ')</th><th>σ₂ (' + br.ad +
+        ')</th><th>τ₁₂ (' + br.ad + ')</th><th>Hasar göstergesi</th></tr></thead><tbody>';
+      s.katmanlar.forEach(function (k, i) {
+        [k.ust, k.alt].forEach(function (n) {
+          o += '<tr class="tik' + (i === D.kat ? ' seciliSatir' : '') + '" data-kat="' + i + '"><td class="sol">' + k.no + ' (' + aciYaz(k.aci) + ')</td><td class="sol">' + n.yuz + '</td><td>' + fmt(tmz(n.z, s.h) * 1e3, 4) + '</td>';
+          n.sxy.concat(n.s12).forEach(function (v) { o += '<td>' + fmt(tmz(v, g) * c, 5) + '</td>'; });
+          o += '<td>' + fmt(n.th.gosterge, 4) + '</td></tr>';
+        });
+      });
+      o += '</tbody></table>';
+    } else if (D.sekme === 'hasar') {
+      o = '<table><thead><tr><th class="sol">Katman</th><th>Açı</th><th>Kalınlık (mm)</th><th>Gösterge, üst yüz</th><th>Gösterge, alt yüz</th><th>En büyük</th><th>Yük çarpanı</th><th class="sol">Baskın biçim</th></tr></thead><tbody>';
+      s.katmanlar.forEach(function (k, i) {
+        o += '<tr class="tik' + (i === D.kat ? ' seciliSatir' : '') + (s.gostergeEnb > 0 && i === s.kritikKatman ? ' kritik' : '') + '" data-kat="' + i + '"><td class="sol">' + k.no + '</td><td>' + aciYaz(k.aci) + '</td><td>' + fmt(k.kalinlik * 1e3, 4) + '</td><td>' +
+          fmt(k.ust.th.gosterge, 4) + '</td><td>' + fmt(k.alt.th.gosterge, 4) + '</td><td>' + fmt(k.gosterge, 4) + (k.kritik.yuz === 'ara' ? ' (içte)' : '') + '</td><td>' + fmt(k.carpan, 5) +
+          '</td><td class="sol">' + k.mod.ad + (k.mod.ayrinti ? ' — ' + k.mod.ayrinti : '') + '</td></tr>';
+      });
+      o += '</tbody></table><div class="ic not">Turuncu çizgili satır ilk hasarın başladığı katmandır. Tsai-Hill tek denklem olduğu için hasar biçimini kendisi vermez; “baskın biçim” göstergeye en çok katkı yapan terime bakılarak kestirilir: ' +
+        '(σ₁/X)² büyükse lif yönü, (σ₂/Y)² + (τ₁₂/S)² büyükse life dik (matris).</div>';
+    } else if (D.sekme === 'matris') {
+      var Ae = enb3(s.A), Qe = enb3(s.Q), gor = {};
+      var eEnb = Math.max(Math.abs(s.eps0[0]), Math.abs(s.eps0[1]), Math.abs(s.eps0[2]), Math.abs(s.kappa[0]) * s.h, Math.abs(s.kappa[1]) * s.h, Math.abs(s.kappa[2]) * s.h);
+      o = '<div class="ic"><div class="matrisler"><div><h5>[A] (N/m)</h5>' + matrisTablo(s.A, Ae) + '</div><div><h5>[B] (N)</h5>' + matrisTablo(s.B, Ae * s.h) + '</div><div><h5>[D] (N·m)</h5>' + matrisTablo(s.D, Ae * s.h * s.h) + '</div>';
+      o += '<div><h5>[Q] — malzeme eksenlerinde (GPa)</h5>' + matrisTablo(s.Q, Qe, 1e-9) + '</div>';
+      s.katmanlar.forEach(function (k) { var a = String(k.aci); if (gor[a]) return; gor[a] = 1; o += '<div><h5>[Q̄] — ' + aciYaz(k.aci) + ' (GPa)</h5>' + matrisTablo(k.Qb, Qe, 1e-9) + '</div>'; });
+      o += '</div><div class="matrisler" style="margin-top:8px"><div><h5>Orta düzlem gerinimleri ve eğrilikler — ε(z) = ε⁰ + z·κ, γ mühendislik kayma gerinimi</h5><table class="matris"><tr>' +
+        ['ε⁰x (–)', 'ε⁰y (–)', 'γ⁰xy (–)', 'κx (1/m)', 'κy (1/m)', 'κxy (1/m)'].map(function (b) { return '<td style="color:var(--soluk)">' + b + '</td>'; }).join('') + '</tr><tr>';
+      s.eps0.forEach(function (v) { o += '<td>' + fmt(tmz(v, eEnb), 5) + '</td>'; });
+      s.kappa.forEach(function (v) { o += '<td>' + fmt(tmz(v * s.h, eEnb) / s.h, 5) + '</td>'; });
+      o += '</tr></table></div></div></div>';
+    } else if (D.sekme === 'grafik') {
+      kutu.innerHTML = '<div id="grafikKutu" style="height:100%;overflow:hidden"></div>';
+      $('grafikKutu').innerHTML = grafikCiz(s, br, kutu.clientWidth, kutu.clientHeight);
+      return;
+    }
+    kutu.innerHTML = o;
+  }
+  var KABUL = '<b>Kabuller.</b> Klasik laminasyon teorisi: ince levha, düzlem gerilme, katmanlar kusursuz yapışık, kalınlık boyunca doğrusal gerinim (Kirchhoff). Bütün katmanlar aynı malzemedendir. ' +
+    'Sıcaklık ve nem gerilmeleri yoktur. Hasar hesabı yalnız ilk katman hasarını verir; hasardan sonraki rijitlik kaybı ve son hasar hesaplanmaz.<br>' +
+    '<b>İşaret düzeni.</b> z ekseni orta düzlemden aşağıya doğrudur; 1. katman üsttedir. N = ∫σ dz, M = ∫σ z dz; pozitif Mx alt yüzde çekme yaratır. Lif açısı x ekseninden y eksenine doğru ölçülür. ' +
+    'z aşağı baktığı için levhaya üstten bakınca artı açı saat yönünde görünür; köşedeki eksen takımı yönü gösterir.<br>' +
+    '<b>Hasar.</b> Gösterge = (σ₁/X)² − σ₁σ₂/X² + (σ₂/Y)² + (τ₁₂/S)²; X ve Y gerilmenin işaretine göre çekme ya da basma dayanımıdır. Gerilme her katmanın içinde doğrusal olduğundan gösterge iki yüzde, ' +
+    'σ₁ ya da σ₂ katman içinde işaret değiştiriyorsa o noktada, bir de (alışılmadık dayanım oranlarında) göstergenin katman içinde tepe yaptığı noktada hesaplanır.<br>' +
+    '<b>Görünüm.</b> Üç boyutlu modelde levhanın kenarı ' + KENAR + ' mm alınır ve kalınlık abartılır; ikisi de yalnız gösterim içindir, hesabı etkilemez. Gerilmeler levha düzleminde her yerde aynıdır, yalnız kalınlık boyunca değişir; ' +
+    'bu yüzden renk, katmanların üst ve alt yüzünde tek, yan yüzlerinde kalınlık boyunca geçişlidir. Yan yüzlerdeki çizgi ve noktalar lif kesitleridir: lif yüze paralelse çizgi, dikse nokta görünür.';
+
+  // altı bileşen yan yana; kalınlık boyunca
+  function grafikCiz(s, br, W, HH) {
+    W = Math.max(600, W - 4); HH = Math.max(140, HH - 6);
+    var ust = 26, alt = 22, sol = 58, ara = 16, h = s.h, pw = (W - sol - 10 - 5 * ara) / 6, ph = HH - ust - alt, p;
+    var zy = function (zz) { return ust + (zz + h / 2) / h * ph; };
+    var TUR = ['sx', 'sy', 'txy', 's1', 's2', 't12'], g = D.gEnb * br.carp;
+    var o = '<svg width="' + W + '" height="' + HH + '" viewBox="0 0 ' + W + ' ' + HH + '" role="img" aria-label="Kalınlık boyunca gerilme grafiği">';
+    TUR.forEach(function (tur, p) {
+      var x0 = sol + p * (pw + ara), mn = 0, mx = 0;
+      var deg = s.katmanlar.map(function (k) { return [tmz(degerAl(k, 0, tur) * br.carp, g), tmz(degerAl(k, 1, tur) * br.carp, g)]; });
+      deg.forEach(function (d) { mn = Math.min(mn, d[0], d[1]); mx = Math.max(mx, d[0], d[1]); });
+      var bos = mx - mn === 0;
+      if (bos) { mn = -(g || 1); mx = (g || 1); }
+      var pay = (mx - mn) * 0.08, a = mn - pay, b = mx + pay;
+      var xx = function (v) { return x0 + (v - a) / (b - a) * pw; };
+      s.katmanlar.forEach(function (k, i) {
+        o += '<rect x="' + x0 + '" y="' + zy(k.zUst) + '" width="' + pw + '" height="' + (zy(k.zAlt) - zy(k.zUst)) + '" fill="' + (i === D.kat ? '#1d4468' : i % 2 ? '#23282e' : '#2a3037') + '"/>';
+      });
+      var yol = '', dolgu = 'M' + xx(0) + ',' + zy(-h / 2);
+      s.katmanlar.forEach(function (k, i) {
+        var n1 = xx(deg[i][0]) + ',' + zy(k.zUst), n2 = xx(deg[i][1]) + ',' + zy(k.zAlt);
+        yol += (i === 0 ? 'M' : 'L') + n1 + 'L' + n2; dolgu += 'L' + n1 + 'L' + n2;
+      });
+      dolgu += 'L' + xx(0) + ',' + zy(h / 2) + 'Z';
+      o += '<path d="' + dolgu + '" fill="#4aa3ff" fill-opacity="0.22"/>';
+      o += '<line x1="' + xx(0) + '" x2="' + xx(0) + '" y1="' + ust + '" y2="' + (ust + ph) + '" stroke="#8e99a6" stroke-width="1"/>';
+      o += '<path d="' + yol + '" fill="none" stroke="' + (D.renk === tur ? '#ffb347' : '#4aa3ff') + '" stroke-width="2" stroke-linejoin="round"/>';
+      o += '<rect x="' + x0 + '" y="' + ust + '" width="' + pw + '" height="' + ph + '" fill="none" stroke="#4a535d" stroke-width="1"/>';
+      o += '<text x="' + (x0 + pw / 2) + '" y="' + (ust - 8) + '" font-size="13" font-weight="600" text-anchor="middle" fill="' + (D.renk === tur ? '#ffb347' : '#d9dee4') + '">' + SONUC[tur].ad + ' (' + br.ad + ')</text>';
+      if (bos) o += '<text x="' + (x0 + pw / 2) + '" y="' + (ust + ph / 2 + 4) + '" font-size="11" text-anchor="middle" fill="#8e99a6">her yerde sıfır</text>';
+      else {
+        if (mn < 0) o += '<text x="' + x0 + '" y="' + (ust + ph + 15) + '" font-size="11" text-anchor="start" fill="#d9dee4">' + fmt(mn, 3) + '</text>';
+        if (mx > 0) o += '<text x="' + (x0 + pw) + '" y="' + (ust + ph + 15) + '" font-size="11" text-anchor="end" fill="#d9dee4">' + fmt(mx, 3) + '</text>';
+      }
+    });
+    var sonY = -100;
+    s.z.forEach(function (zz, i) {
+      var yy = zy(zz);
+      if (i > 0 && i < s.z.length - 1) o += '<line x1="' + sol + '" x2="' + (W - 10) + '" y1="' + yy + '" y2="' + yy + '" stroke="#5b6672" stroke-width="0.6" stroke-dasharray="3 3"/>';
+      if (yy - sonY >= 12 || i === s.z.length - 1) { o += '<text x="' + (sol - 5) + '" y="' + (yy + 4) + '" font-size="10.5" text-anchor="end" fill="#8e99a6">' + fmt(tmz(zz, h) * 1e3, 4) + '</text>'; sonY = yy; }
+    });
+    o += '<text x="11" y="' + (ust + ph / 2) + '" font-size="11" fill="#8e99a6" text-anchor="middle" transform="rotate(-90 11 ' + (ust + ph / 2) + ')">z (mm) ↓</text></svg>';
+    return o;
+  }
+
+  // ------------------------------------------------------------------ durum çubuğu
+  function durumYaz() {
+    var s = D.s, e = $('durum'), o;
+    e.className = D.hat.length ? 'hata' : '';
+    if (D.hat.length) o = '<span><span class="lamba"></span>Girdi hatası (' + D.hat.length + ') — çözüm yok</span><span>' + kacis(D.hat[0].mesaj) + '</span>';
+    else {
+      o = '<span><span class="lamba"></span>Çözüm güncel</span><span>h = ' + fmt(s.h * 1e3, 5) + ' mm</span><span>' + s.katmanlar.length + ' katman / ' + s.katmanlar.reduce(function (a, k) { return a + k.adet; }, 0) + ' tabaka</span>';
+      o += '<span>' + (s.gostergeEnb > 0 ? 'İlk hasar: × ' + fmt(s.carpan, 5) + ' — ' + (s.kritikKatman + 1) + '. katman (' + aciYaz(s.katmanlar[s.kritikKatman].aci) + '), ' + s.mod.ad : 'Yük yok') + '</span>';
+      o += '<span>Renk: ' + (D.renk === 'geo' ? 'geometri' : SONUC[D.renk].ad + (SONUC[D.renk].hasar ? '' : ' (' + D.birim.ad + ')')) + '</span>';
+    }
+    o += '<span class="sag">' + (D.imlec >= 0 && D.geo && D.geo.kat[D.imlec] ? 'İmleç: ' + (D.imlec + 1) + '. katman (' + aciYaz(D.geo.kat[D.imlec].aci) + ') · ' : '') +
+      'Bakış: yön ' + Math.round(D.kam.az) + '°, yükseklik ' + Math.round(D.kam.el) + '° · yakınlık ×' + fmt(D.kam.zoom, 3) + '</span>';
+    e.innerHTML = o;
+  }
+
+  // ------------------------------------------------------------------ yenileme
+  function yenile(girdiPaneli) {
+    try {
+      var okunan = girdiOku(), hat = okunan.hatalar, s = null;
+      if (!hat.length) { s = C.hesapla(okunan.g); hat = s.hatalar; if (hat.length) s = null; }
+      D.hat = hat; D.s = s; D.g = okunan.g;
+      D.geo = geometriKur();
+      if (D.kat >= D.satirlar.length) D.kat = -1;
+      abartHesapla();
+      if (s) {
+        var gEnb = 0;
+        s.katmanlar.forEach(function (k) { [k.ust, k.alt].forEach(function (n) { n.sxy.concat(n.s12).forEach(function (v) { gEnb = Math.max(gEnb, Math.abs(v)); }); }); });
+        D.gEnb = gEnb;
+        D.birim = gEnb >= 1e6 ? { ad: 'MPa', carp: 1e-6 } : gEnb >= 1e4 ? { ad: 'kPa', carp: 1e-3 } : { ad: 'Pa', carp: 1 };
+      }
+      // mesaj günlüğü
+      var imza = hat.length ? 'H:' + hat.map(function (h) { return h.mesaj; }).join('|') : 'T:' + JSON.stringify([okunan.g]);
+      if (imza !== D.sonImza) {
+        D.sonImza = imza;
+        if (hat.length) {
+          mesaj('hata', 'Çözüm yapılamadı — girdide düzeltilmesi gereken ' + hat.length + ' şey var:');
+          hat.forEach(function (h) { mesaj('hata', '   • ' + h.mesaj); });
+          D.sekme = 'mesaj';
+        } else {
+          mesaj('tamam', 'Çözüm tamam — ' + s.katmanlar.length + ' katman, h = ' + fmt(s.h * 1e3, 5) + ' mm; ' + (s.gostergeEnb > 0 ?
+            'ilk hasar × ' + fmt(s.carpan, 5) + ', ' + (s.kritikKatman + 1) + '. katman (' + aciYaz(s.katmanlar[s.kritikKatman].aci) + '), ' + s.mod.ad + (s.mod.ayrinti ? ' — ' + s.mod.ayrinti : '') : 'yük yok'));
+          if (s.gostergeEnb > 0 && s.carpan < 1) mesaj('hata', 'Uyarı: girilen yük ilk hasar sınırının üstünde (çarpan ' + fmt(s.carpan, 4) + ').');
+        }
+      }
+      $('cozumYok').style.display = hat.length ? 'block' : 'none';
+      if (hat.length) $('cozumYok').innerHTML = '<b>Çözüm yok</b><br>' + kacis(hat[0].mesaj) + (hat.length > 1 ? '<br>… ve ' + (hat.length - 1) + ' hata daha (Mesajlar sekmesi)' : '') +
+        (D.geo ? '' : '<br><span style="opacity:.8">Katman tablosu çizilemiyor.</span>');
+      if (girdiPaneli !== false) ayrintiGirdiYaz(); else hataIsaretle();
+      agacYaz(); ayrintiSonucYaz(); sekmeYaz(); altYaz(); skalaYaz(); aracYaz(); durumYaz(); ciz();
+    } catch (e) {
+      mesaj('hata', 'Beklenmeyen program hatası: ' + (e && e.message ? e.message : e));
+      D.sekme = 'mesaj';
+      try { sekmeYaz(); altYaz(); } catch (e2) { /* yapacak bir şey yok */ }
+    }
+  }
+  function aracYaz() {
+    $('abart').value = abartTers(D.abart);
+    $('abartYazi').textContent = '×' + D.abart;
+    $('abartOtoDugme').className = D.abartOto ? 'basili' : '';
+    $('aralik').value = D.aralik; $('lif').checked = D.lif; $('etiket').checked = D.etiket; $('renkSec').value = D.renk;
+  }
+  // yalnız görünümü ilgilendiren değişiklikler (hesap yeniden yapılmaz)
+  function gorunumYenile() { agacYaz(); ayrintiSonucYaz(); sekmeYaz(); altYaz(); skalaYaz(); aracYaz(); durumYaz(); ciz(); }
+
+  // ------------------------------------------------------------------ komutlar
+  var BAKIS = { izo: [60, 25], ust: [90, 89.5], alt: [-90, -89.5], on: [90, 0], yan: [180, 0] };
+  function sec(id) {
+    D.secili = id;
+    if (id.indexOf('r:') === 0) D.renk = id.slice(2);
+    else if (id === 'geo') D.renk = 'geo';
+    else if (id.indexOf('kat:') === 0) D.kat = Number(id.slice(4));
+    else if (id.indexOf('t:') === 0) D.sekme = id.slice(2);
+    else if (id === 'ust:xy') { sec('r:sx'); return; }
+    else if (id === 'ust:12') { sec('r:s1'); return; }
+    ayrintiGirdiYaz();
+    gorunumYenile();
+  }
+  function komut(k) {
+    if (k.indexOf('sec:') === 0) sec(k.slice(4));
+    else if (k.indexOf('alt:') === 0) { D.sekme = k.slice(4); gorunumYenile(); }
+    else if (k.indexOf('bak:') === 0) { var b = BAKIS[k.slice(4)]; D.kam.az = b[0]; D.kam.el = b[1]; D.kam.px = 0; D.kam.py = 0; durumYaz(); ciz(); }
+    else if (k === 'sigdir') { D.kam.zoom = 1; D.kam.px = 0; D.kam.py = 0; durumYaz(); ciz(); }
+    else if (k === 'lif') { D.lif = !D.lif; gorunumYenile(); }
+    else if (k === 'etiket') { D.etiket = !D.etiket; gorunumYenile(); }
+    else if (k === 'abartOto') { D.abartOto = true; abartHesapla(); gorunumYenile(); }
+    else if (k === 'ornek') { ornekYukle(); mesaj('bilgi', 'Örnek levha yüklendi: E-cam / epoksi, [0 / 90×10 / 0], Nx = 1 N/m.'); yenile(); }
+    else if (k === 'satirEkle') {
+      var son = D.satirlar[D.satirlar.length - 1];
+      D.satirlar.push({ aci: '0', t: son ? son.t : '0,127', n: '1' });
+      if (D.secili !== 'kat') D.secili = 'kat';
+      yenile();
+    } else if (k === 'png') {
+      try {
+        var a = document.createElement('a');
+        a.href = tuval.toDataURL('image/png'); a.download = 'katmer-gorunum.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        mesaj('bilgi', 'Görünüm katmer-gorunum.png adıyla kaydedildi (renk skalası ve yazılar resme dahil değildir).');
+      } catch (e) { mesaj('hata', 'Resim kaydedilemedi: ' + e.message); }
+      D.sekme = 'mesaj'; gorunumYenile();
+    } else if (k === 'hakkinda') {
+      $('pencere').innerHTML = '<h3>KATMER — Katmanlı Levha Çözücü</h3><p>Tek dosyalık, kurulum istemeyen, tarayıcıda çalışan küçük bir mühendislik programı. Klasik laminasyon teorisiyle katmanlı kompozit levhanın ' +
+        'A-B-D matrislerini, katman gerilmelerini ve Tsai-Hill ölçütüyle ilk katman hasarını hesaplar.</p><p>Dış kütüphane ve internet bağlantısı kullanmaz; üç boyutlu görünüm programın kendi çizimidir.</p>' +
+        '<p>Kabuller ve işaret düzeni için: Yardım → Kabuller ve işaret düzeni.</p><p style="text-align:right;margin-top:14px"><button id="pencereKapat">Kapat</button></p>';
+      $('perde').style.display = 'flex';
+    }
+  }
+  function katmanIs(is, i) {
+    var S = D.satirlar, g;
+    if (is === 'sil') { S.splice(i, 1); D.kat = -1; if (D.secili.indexOf('kat:') === 0) D.secili = 'kat'; }
+    else if (is === 'yukari' && i > 0) { g = S[i - 1]; S[i - 1] = S[i]; S[i] = g; if (D.secili === 'kat:' + i) { D.secili = 'kat:' + (i - 1); D.kat = i - 1; } }
+    else if (is === 'asagi' && i < S.length - 1) { g = S[i + 1]; S[i + 1] = S[i]; S[i] = g; if (D.secili === 'kat:' + i) { D.secili = 'kat:' + (i + 1); D.kat = i + 1; } }
+    yenile();
+  }
+
+  // ------------------------------------------------------------------ olaylar
+  document.addEventListener('click', function (e) {
+    var t = e.target, m = t.closest('.menuBas'), acik = document.querySelector('.menuBas.acik');
+    var kEl = t.closest('[data-komut]');
+    if (acik && (!m || kEl || m === acik)) acik.classList.remove('acik');
+    if (m && !kEl && m !== acik) { if (acik) acik.classList.remove('acik'); m.classList.add('acik'); }
+    if (kEl) { komut(kEl.dataset.komut); return; }
+    var is = t.closest('button[data-is]');
+    if (is) { katmanIs(is.dataset.is, Number(is.dataset.i)); return; }
+    var dg = t.closest('.dugum');
+    if (dg) { sec(dg.dataset.id); return; }
+    var sk = t.closest('.sekme');
+    if (sk) { D.sekme = sk.dataset.sekme; gorunumYenile(); return; }
+    var satir = t.closest('tr[data-kat]');
+    if (satir) { D.kat = Number(satir.dataset.kat); gorunumYenile(); return; }
+    if (t.id === 'pencereKapat' || t.id === 'perde') $('perde').style.display = 'none';
+  });
+  document.addEventListener('mouseover', function (e) {
+    var m = e.target.closest ? e.target.closest('.menuBas') : null, acik = document.querySelector('.menuBas.acik');
+    if (m && acik && m !== acik) { acik.classList.remove('acik'); m.classList.add('acik'); }
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { $('perde').style.display = 'none'; var a = document.querySelector('.menuBas.acik'); if (a) a.classList.remove('acik'); } });
+  $('ayrinti').addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.dataset.g) D.girdi[t.dataset.g] = t.value;
+    else if (t.dataset.a) D.satirlar[Number(t.dataset.i)][t.dataset.a] = t.value;
+    else return;
+    yenile(false);
+  });
+  $('abart').addEventListener('input', function () { D.abart = abartKaydir(Number(this.value)); D.abartOto = false; skalaYaz(); $('abartYazi').textContent = '×' + D.abart; $('abartOtoDugme').className = ''; ciz(); });
+  $('aralik').addEventListener('input', function () { D.aralik = Number(this.value); skalaYaz(); ciz(); });
+  $('lif').addEventListener('change', function () { D.lif = this.checked; ciz(); });
+  $('etiket').addEventListener('change', function () { D.etiket = this.checked; ciz(); });
+  $('renkSec').addEventListener('change', function () { sec(this.value === 'geo' ? 'geo' : 'r:' + this.value); });
+
+  var tut = null;
+  tuval.addEventListener('pointerdown', function (e) {
+    try { tuval.setPointerCapture(e.pointerId); } catch (hata) { /* yakalanamazsa da çalışır */ }
+    tut = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, kaydir: e.button === 1 || e.button === 2 || e.shiftKey, oynadi: false };
+    tuval.classList.add('tutuyor'); e.preventDefault();
+  });
+  tuval.addEventListener('pointermove', function (e) {
+    var r = tuval.getBoundingClientRect();
+    if (!tut) {
+      var k = katmanBul(e.clientX - r.left, e.clientY - r.top);
+      if (k !== D.imlec) { D.imlec = k; durumYaz(); }
+      return;
+    }
+    var dx = e.clientX - tut.x, dy = e.clientY - tut.y;
+    tut.x = e.clientX; tut.y = e.clientY;
+    if (Math.abs(e.clientX - tut.x0) + Math.abs(e.clientY - tut.y0) > 4) tut.oynadi = true;
+    if (!tut.oynadi) return;
+    if (tut.kaydir) { D.kam.px += dx; D.kam.py += dy; }
+    else {
+      D.kam.az = ((D.kam.az + dx * 0.4 + 540) % 360) - 180;
+      D.kam.el = Math.max(-89.5, Math.min(89.5, D.kam.el + dy * 0.4));
+    }
+    durumYaz(); ciz();
+  });
+  tuval.addEventListener('pointerup', function (e) {
+    tuval.classList.remove('tutuyor');
+    if (tut && !tut.oynadi && e.button === 0) {
+      var r = tuval.getBoundingClientRect(), k = katmanBul(e.clientX - r.left, e.clientY - r.top);
+      tut = null;
+      if (k >= 0) sec('kat:' + k); else { D.kat = -1; gorunumYenile(); }
+      return;
+    }
+    tut = null;
+  });
+  tuval.addEventListener('pointercancel', function () { tut = null; tuval.classList.remove('tutuyor'); });
+  tuval.addEventListener('pointerleave', function () { if (D.imlec !== -1) { D.imlec = -1; durumYaz(); } });
+  tuval.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var r = tuval.getBoundingClientRect(), mx = e.clientX - r.left - r.width / 2, my = e.clientY - r.top - r.height / 2;
+    var eski = D.kam.zoom, yeni = Math.max(0.15, Math.min(40, eski * Math.exp(-e.deltaY * 0.0012))), o = yeni / eski;
+    D.kam.px = mx - (mx - D.kam.px) * o; D.kam.py = my - (my - D.kam.py) * o; D.kam.zoom = yeni;   // imlecin altındaki nokta yerinde kalsın
+    durumYaz(); ciz();
+  }, { passive: false });
+  tuval.addEventListener('dblclick', function () { komut('sigdir'); });
+  tuval.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  if (window.ResizeObserver) new ResizeObserver(function () { ciz(); if (D.sekme === 'grafik') altYaz(); }).observe($('gorunum'));
+  window.addEventListener('resize', function () { ciz(); if (D.sekme === 'grafik') altYaz(); });
+
+  // ------------------------------------------------------------------ başlangıç
+  ornekYukle();
+  mesaj('bilgi', 'KATMER hazır. Örnek levha yüklendi: E-cam / epoksi, [0 / 90×10 / 0], Nx = 1 N/m.');
+  yenile();
+  window.KATMER = { durum: D, komut: komut, sec: sec, yenile: yenile, katmanBul: katmanBul, kameraKur: kameraKur };   // sınama ve merak için
+})();
+</script>
+</body>
+</html>
